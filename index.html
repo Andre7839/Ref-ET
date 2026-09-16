@@ -1,0 +1,1359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RefET-PM &mdash; Penman-Monteith Reference Evapotranspiration</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{
+  --blue:#002855; --blue-light:#0a3d75; --bg:#f2f3f5; --card:#ffffff; --border:#dcdfe3;
+  --text:#1b1f24; --muted:#5b6572; --accent:#c69214; --good:#2e7d46; --bad:#b3392c;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;}
+h1,h2,h3,h4{margin:0 0 .4em 0;color:var(--blue);}
+header.top{background:var(--blue);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+header.top .brandmark{width:42px;height:42px;flex:0 0 auto;}
+header.top .titles{flex:1 1 auto;min-width:200px;}
+header.top h1{color:#fff;font-size:1.5rem;margin:0;}
+header.top .sub{color:#c9d6e8;font-size:.85rem;letter-spacing:.02em;}
+.controls-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.compute-bar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.compute-bar .btn{padding:11px 26px;font-size:.95rem;}
+.compute-bar #computeStatus > div{margin-bottom:0;}
+.toggle-group{display:flex;background:rgba(255,255,255,.12);border-radius:8px;padding:3px;gap:2px;}
+.toggle-group button{border:none;background:transparent;color:#e4ebf5;padding:7px 14px;border-radius:6px;font-size:.85rem;cursor:pointer;font-weight:600;}
+.toggle-group button.active{background:#fff;color:var(--blue);}
+main{max-width:1180px;margin:0 auto;padding:20px 20px 60px;}
+nav.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+nav.tabs button{border:1px solid var(--border);background:#fff;color:var(--muted);padding:10px 18px;border-radius:8px;cursor:pointer;font-size:.95rem;font-weight:600;}
+nav.tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.panel{display:none;}
+.panel.active{display:block;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;}
+.card h3{font-size:1.05rem;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:16px;}
+.grid{display:grid;gap:14px;}
+.grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+.grid.cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+@media (max-width:760px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;}}
+label{display:block;font-size:.8rem;color:var(--muted);font-weight:600;margin-bottom:4px;}
+input[type=text],input[type=number],input[type=date],select{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:.95rem;background:#fff;color:var(--text);
+}
+input:focus,select:focus{outline:2px solid var(--blue-light);outline-offset:1px;}
+.field{margin-bottom:10px;}
+.btn{background:var(--blue);color:#fff;border:none;padding:10px 18px;border-radius:7px;font-weight:600;cursor:pointer;font-size:.9rem;}
+.btn:hover{background:var(--blue-light);}
+.btn.secondary{background:#fff;color:var(--blue);border:1px solid var(--blue);}
+.btn.secondary:hover{background:#eef2f7;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+#map{height:260px;border-radius:8px;border:1px solid var(--border);margin-top:10px;}
+table.datatable{width:100%;border-collapse:collapse;font-size:.85rem;}
+table.datatable th,table.datatable td{border:1px solid var(--border);padding:5px 7px;text-align:right;}
+table.datatable th{background:#eef1f4;color:var(--blue);position:sticky;top:0;}
+table.datatable td:first-child,table.datatable th:first-child{text-align:left;}
+table.datatable input{border:none;background:transparent;width:100%;text-align:right;padding:2px;font-size:.85rem;}
+.table-scroll{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;background:#eef1f4;color:var(--blue);}
+.statcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px;}
+.statcard{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
+.statcard .val{font-size:1.5rem;font-weight:700;color:var(--blue);}
+.statcard .lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.chart-wrap{position:relative;height:340px;}
+.slider-row{display:grid;grid-template-columns:150px 1fr 90px;gap:12px;align-items:center;margin-bottom:14px;}
+.slider-row input[type=range]{width:100%;}
+.slider-row .valbox{text-align:right;font-weight:700;color:var(--blue);font-size:.9rem;}
+.note{font-size:.78rem;color:var(--muted);margin-top:4px;}
+.tag-warn{background:#fdf1e3;color:#8a5a12;border:1px solid #f0d3a3;padding:8px 12px;border-radius:6px;font-size:.82rem;margin-bottom:12px;}
+.tag-err{background:#fbeceb;color:var(--bad);border:1px solid #f0c7c2;padding:8px 12px;border-radius:6px;font-size:.82rem;margin-bottom:12px;}
+.tag-ok{background:#eaf5ec;color:var(--good);border:1px solid #c9e7ce;padding:8px 12px;border-radius:6px;font-size:.82rem;margin-bottom:12px;}
+.hidden{display:none!important;}
+.small{font-size:.8rem;}
+.pager{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px;}
+.pager button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;}
+select.mapping{font-size:.8rem;padding:4px 6px;}
+.two-col-tables{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:900px){.two-col-tables{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <svg class="brandmark" viewBox="0 0 64 64" aria-hidden="true">
+    <circle cx="32" cy="32" r="30" fill="#0a3d75"/>
+    <path d="M32 10 C40 24 48 32 48 42 A16 16 0 0 1 16 42 C16 32 24 24 32 10 Z" fill="#c69214"/>
+    <path d="M32 22 C36 30 40 35 40 41 A8 8 0 0 1 24 41 C24 35 28 30 32 22 Z" fill="#ffffff" opacity=".85"/>
+  </svg>
+  <div class="titles">
+    <h1>RefET-PM</h1>
+    <div class="sub">UCD Advanced Irrigation Lab</div>
+  </div>
+  <div class="controls-bar">
+    <div class="toggle-group" id="unitToggle">
+      <button data-val="SI" class="active">SI</button>
+      <button data-val="IMP">Imperial</button>
+    </div>
+  </div>
+</header>
+
+<div class="compute-bar">
+  <button class="btn" id="btnCompute">Compute ET&#8320;</button>
+  <div id="computeStatus"></div>
+</div>
+
+<main>
+  <nav class="tabs">
+    <button data-tab="setup" class="active">1. Location &amp; Surface</button>
+    <button data-tab="data">2. Weather Data</button>
+    <button data-tab="results">3. Results</button>
+    <button data-tab="sensitivity">4. Sensitivity Analysis</button>
+  </nav>
+
+  <!-- ============ TAB 1: SETUP ============ -->
+  <section class="panel active" id="panel-setup">
+    <div class="card">
+      <h3>Location</h3>
+      <div class="grid cols-3">
+        <div class="field" style="grid-column:span 2;">
+          <label>Search location</label>
+          <input type="text" id="locSearch" placeholder="e.g. Davis, California">
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="btn" id="btnGeocode" style="width:100%;">Search</button>
+        </div>
+      </div>
+      <div id="geocodeResults" class="small"></div>
+      <div class="grid cols-4" style="margin-top:8px;">
+        <div class="field"><label>Latitude (&deg;, + N)</label><input type="number" id="lat" value="38.5449" step="0.0001"></div>
+        <div class="field"><label>Longitude (&deg;, + E)</label><input type="number" id="lon" value="-121.7405" step="0.0001"></div>
+        <div class="field"><label>Elevation (<span class="u-elev">m</span>)</label><input type="number" id="elev" value="18" step="1"></div>
+        <div class="field"><label>UTC offset (h)</label><input type="number" id="utcOffset" value="-8" step="1"></div>
+      </div>
+      <div id="map"></div>
+      <div id="mapStatus" class="tag-warn hidden" style="margin-top:10px;"></div>
+      <div class="note">Click anywhere on the map to set latitude/longitude (works even if the map imagery itself fails to load). UTC offset is used only for hourly solar-time geometry (auto-suggested from longitude; edit if your data uses a different clock).</div>
+    </div>
+
+    <div class="card">
+      <h3>Surface / crop parameters</h3>
+      <div class="field" style="max-width:340px;">
+        <label>Preset</label>
+        <select id="surfacePreset">
+          <option value="grass70">FAO-56 reference grass (h=0.12 m, rc=70 s/m, constant)</option>
+          <option value="grassNight">Grass, stomata close at night (rc day 70 / night 200 s/m)</option>
+          <option value="water">Open water (albedo 0.10, rc &asymp; 0)</option>
+          <option value="alfalfa">Tall reference (alfalfa-like, h=0.50 m, rc=45 s/m)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="grid cols-4">
+        <div class="field"><label>Albedo (&minus;)</label><input type="number" id="albedo" value="0.23" step="0.01"></div>
+        <div class="field"><label>Canopy height h (<span class="u-len">m</span>)</label><input type="number" id="cropH" value="0.12" step="0.01"></div>
+        <div class="field"><label>Surface resistance, day (s/m)</label><input type="number" id="rcDay" value="70" step="1"></div>
+        <div class="field"><label>Surface resistance, night (s/m)</label><input type="number" id="rcNight" value="70" step="1"></div>
+        <div class="field"><label>Wind measurement height (<span class="u-len">m</span>)</label><input type="number" id="zm" value="2" step="0.1"></div>
+        <div class="field"><label>Humidity measurement height (<span class="u-len">m</span>)</label><input type="number" id="zh" value="2" step="0.1"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 2: DATA ============ -->
+  <section class="panel" id="panel-data">
+    <div class="card" id="timestepCard">
+      <h3>Timestep</h3>
+      <div class="field" style="max-width:320px;">
+        <label>Compute reference ET&#8320; at</label>
+        <select id="stepToggle" style="font-size:1.05rem;font-weight:600;padding:11px 12px;">
+          <option value="hourly" selected>Hourly</option>
+          <option value="daily">Daily</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="note">Sets which weather-data sources are available below and which form of the Penman-Monteith equation is used (hourly vs. daily/monthly). Switching this clears any loaded data.</div>
+    </div>
+
+    <div class="card">
+      <h3>Source</h3>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn" id="showNasaPanel" title="NASA POWER is available for Daily and Monthly timesteps">NASA POWER</button>
+        <button class="btn secondary" id="showOpenMeteoPanel" title="Open-Meteo is available for the Hourly timestep">Open-Meteo</button>
+        <button class="btn secondary" id="showExcelPanel">Import Excel / CSV</button>
+        <button class="btn secondary" id="showManualPanel">Enter manually</button>
+      </div>
+      <div class="note" id="nasaHourlyNote">NASA POWER auto-fetch is available for Daily and Monthly timesteps &mdash; its hourly solar-radiation data has a much longer processing latency and is often unavailable for recent dates. For Hourly, use Open-Meteo (below), Excel/CSV import, or manual entry.</div>
+      <div class="note hidden" id="openMeteoDailyNote">Open-Meteo auto-fetch here is for the Hourly timestep. For Daily/Monthly, use NASA POWER above.</div>
+
+      <div id="nasaPanel" class="hidden" style="margin-top:16px;">
+        <div class="grid cols-3">
+          <div class="field"><label>Start date</label><input type="date" id="nasaStart"></div>
+          <div class="field" id="nasaEndWrap"><label>End date</label><input type="date" id="nasaEnd"></div>
+          <div class="field" id="nasaYearWrap" class="hidden"><label>Year (monthly)</label><input type="number" id="nasaYear" value="2024"></div>
+          <div class="field"><label>&nbsp;</label><button class="btn" id="btnNasaFetch" style="width:100%;">Fetch from NASA POWER</button></div>
+        </div>
+        <div class="note">Uses the NASA POWER point API (<code>power.larc.nasa.gov</code>) at the coordinates set in Tab&nbsp;1. Hourly requests are fetched in UTC and matched to the same clock internally, so results are unaffected by the UTC-offset field. Large hourly ranges (&gt; ~31 days) may take a while &mdash; this call reaches an external server, so it only works when this page is open in your own browser (not in a sandboxed preview).</div>
+        <div id="nasaStatus"></div>
+      </div>
+
+      <div id="openMeteoPanel" class="hidden" style="margin-top:16px;">
+        <div class="grid cols-3">
+          <div class="field"><label>Start date</label><input type="date" id="omStart"></div>
+          <div class="field"><label>End date</label><input type="date" id="omEnd"></div>
+          <div class="field"><label>&nbsp;</label><button class="btn" id="btnOmFetch" style="width:100%;">Fetch from Open-Meteo</button></div>
+        </div>
+        <div class="note">Uses the Open-Meteo historical weather API (<code>archive-api.open-meteo.com</code>) at the coordinates set in Tab&nbsp;1 &mdash; no API key required, and (unlike NASA POWER's hourly product) solar radiation is available with only a few days' delay. Wind is measured at 10&nbsp;m and converted to the standard 2&nbsp;m reference height (FAO-56 log-wind-profile). Fetched in UTC and matched to the same clock internally, so results are unaffected by the UTC-offset field. This call reaches an external server, so it only works when this page is open in your own browser (not in a sandboxed preview).</div>
+        <div id="omStatus"></div>
+      </div>
+
+      <div id="excelPanel" class="hidden" style="margin-top:16px;">
+        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+        <div id="excelMapping" class="hidden" style="margin-top:14px;">
+          <h4>Column mapping</h4>
+          <div id="mappingFields" class="grid cols-4"></div>
+          <button class="btn" id="btnApplyMapping" style="margin-top:10px;">Load data</button>
+        </div>
+        <div class="note" style="margin-top:8px;">Reads the first worksheet. Recognized headers (case-insensitive) are auto-mapped: Date, Year, DOY, Time/Hour, T/Temp/Tmax/Tmin, RH/RHmax/RHmin, U/WS/Wind, Rs/Solar/Radiation.</div>
+      </div>
+
+      <div id="manualPanel" class="hidden" style="margin-top:16px;">
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn secondary" id="btnAddRow">+ Add row</button>
+          <button class="btn secondary" id="btnAddYear">+ Add 12 months</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Data table <span class="pill" id="rowCountPill">0 rows</span></h3>
+      <div class="table-scroll"><table class="datatable" id="dataTable"><thead></thead><tbody></tbody></table></div>
+      <div class="pager hidden" id="dataPager">
+        <button id="pagerPrev">&larr; Prev</button>
+        <span id="pagerLabel" class="small"></span>
+        <button id="pagerNext">Next &rarr;</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="btnClearData">Clear data</button>
+      </div>
+      <div class="note">Use the <strong>Compute ET&#8320;</strong> button at the top of the page once your data is loaded.</div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 3: RESULTS ============ -->
+  <section class="panel" id="panel-results">
+    <div class="card">
+      <h3>Summary</h3>
+      <div class="statcards" id="statCards"></div>
+      <div class="chart-wrap"><canvas id="resultsChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Result table</h3>
+      <div class="btn-row" style="margin-top:0;margin-bottom:12px;">
+        <button class="btn secondary" id="btnExportCsv">Export CSV</button>
+        <button class="btn secondary" id="btnExportXlsx">Export Excel</button>
+      </div>
+      <div class="table-scroll"><table class="datatable" id="resultsTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4: SENSITIVITY ============ -->
+  <section class="panel" id="panel-sensitivity">
+    <div class="card">
+      <h3>Baseline record</h3>
+      <div class="grid cols-2">
+        <div class="field">
+          <label>Record</label>
+          <select id="sensRecordSelect"></select>
+        </div>
+        <div class="field">
+          <label>Apply perturbations to</label>
+          <select id="sensScope">
+            <option value="single">Selected record only</option>
+            <option value="all">Entire loaded series</option>
+          </select>
+        </div>
+      </div>
+      <div id="sensBaselineInfo" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h3>Interactive sliders</h3>
+      <div class="slider-row">
+        <label>Temperature</label>
+        <input type="range" id="sT" min="-5" max="5" step="0.1" value="0">
+        <div class="valbox" id="vT">0.0 &deg;C</div>
+      </div>
+      <div class="slider-row">
+        <label>Relative humidity</label>
+        <input type="range" id="sRH" min="-30" max="30" step="1" value="0">
+        <div class="valbox" id="vRH">0 pts</div>
+      </div>
+      <div class="slider-row">
+        <label>Wind speed</label>
+        <input type="range" id="sWS" min="-80" max="200" step="5" value="0">
+        <div class="valbox" id="vWS">0 %</div>
+      </div>
+      <div class="slider-row">
+        <label>Solar radiation</label>
+        <input type="range" id="sRS" min="-80" max="80" step="5" value="0">
+        <div class="valbox" id="vRS">0 %</div>
+      </div>
+      <div class="slider-row">
+        <label>Aerodynamic resistance r<sub>a</sub></label>
+        <input type="range" id="sRA" min="-80" max="200" step="5" value="0">
+        <div class="valbox" id="vRA">0 %</div>
+      </div>
+      <div class="slider-row">
+        <label>Surface resistance r<sub>c</sub></label>
+        <input type="range" id="sRC" min="-80" max="300" step="5" value="0">
+        <div class="valbox" id="vRC">0 %</div>
+      </div>
+      <div class="note hidden" id="rcNote">r<sub>c</sub> is disabled for the current surface preset (Open water) &mdash; a free water surface has no stomatal/canopy resistance for this formulation to vary.</div>
+      <button class="btn secondary" id="btnResetSliders">Reset all</button>
+
+      <div class="statcards" style="margin-top:18px;">
+        <div class="statcard"><div class="val" id="sensBaseEto">&mdash;</div><div class="lbl">Baseline ET&#8320;</div></div>
+        <div class="statcard"><div class="val" id="sensNewEto">&mdash;</div><div class="lbl">Perturbed ET&#8320;</div></div>
+        <div class="statcard"><div class="val" id="sensDeltaEto">&mdash;</div><div class="lbl">Change</div></div>
+      </div>
+      <div class="chart-wrap hidden" id="sensSeriesChartWrap" style="height:300px;"><canvas id="sensSeriesChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Normalized sensitivity (elasticity)</h3>
+      <div class="note">Each variable perturbed independently around the baseline record &mdash; temperature by &plusmn;2&deg;C, relative humidity by &plusmn;10 percentage points, and wind, radiation, r<sub>a</sub> and r<sub>c</sub> by &plusmn;10% &mdash; while holding all others fixed. Bars show the resulting % change in ET&#8320;.</div>
+      <div class="chart-wrap" style="height:280px;"><canvas id="tornadoChart"></canvas></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+<script>
+/* =========================================================================
+   PM ENGINE  (FAO-56 / ASCE-EWRI Penman-Monteith, generalized with explicit
+   aerodynamic (ra) and bulk surface (rc) resistances)
+   ========================================================================= */
+const PM = (function () {
+  const SIGMA = 4.903e-9, SIGMA_HR = SIGMA / 24, GSC = 0.0820, KARMAN = 0.41, LAMBDA = 2.45;
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  const M = {};
+  M.satVaporPressure = T => 0.6108 * Math.exp((17.27 * T) / (T + 237.3));
+  M.slopeSatVaporPressure = T => (4098 * M.satVaporPressure(T)) / Math.pow(T + 237.3, 2);
+  M.atmPressure = z => 101.3 * Math.pow((293 - 0.0065 * z) / 293, 5.26);
+  M.psychrometricConstant = P => 0.000665 * P;
+  M.rhoCp = (T, P, ea) => (29000 * P) / 8.31 / (T + 273) * (1.01 + (0.622 * ea) / (P - ea));
+  M.actualVaporPressure = function (o) {
+    if (o.mode === 'direct') return o.ea;
+    if (o.mode === 'tdew') return M.satVaporPressure(o.Tdew);
+    if (o.mode === 'rhmaxmin') {
+      const esTmax = M.satVaporPressure(o.Tmax), esTmin = M.satVaporPressure(o.Tmin);
+      return (esTmin * (o.RHmax / 100) + esTmax * (o.RHmin / 100)) / 2;
+    }
+    const es = o.es !== undefined ? o.es : M.satVaporPressure(o.T);
+    return (o.RH / 100) * es;
+  };
+  M.inverseRelDistanceEarthSun = J => 1 + 0.033 * Math.cos((2 * Math.PI / 365) * J);
+  M.solarDeclination = J => 0.409 * Math.sin((2 * Math.PI / 365) * J - 1.39);
+  M.sunsetHourAngle = (lat, dec) => Math.acos(clamp(-Math.tan(lat) * Math.tan(dec), -1, 1));
+  M.daylightHours = ws => (24 / Math.PI) * ws;
+  M.extraterrestrialRadiationDaily = function (J, latRad) {
+    const dr = M.inverseRelDistanceEarthSun(J), dec = M.solarDeclination(J), ws = M.sunsetHourAngle(latRad, dec);
+    const Ra = (24 * 60 / Math.PI) * GSC * dr * (ws * Math.sin(latRad) * Math.sin(dec) + Math.cos(latRad) * Math.cos(dec) * Math.sin(ws));
+    return { Ra, dr, dec, ws, N: M.daylightHours(ws) };
+  };
+  M.extraterrestrialRadiationHourly = function (J, latRad, lonDegEast, utcOffsetHours, tClockHour) {
+    const dr = M.inverseRelDistanceEarthSun(J), dec = M.solarDeclination(J);
+    const b = (2 * Math.PI * (J - 81)) / 364;
+    const Sc = 0.1645 * Math.sin(2 * b) - 0.1255 * Math.cos(b) - 0.025 * Math.sin(b);
+    const Lz = -15 * utcOffsetHours, Lm = -lonDegEast;
+    const omega = (Math.PI / 12) * ((tClockHour + 0.06667 * (Lz - Lm) + Sc) - 12);
+    const omega1 = omega - Math.PI / 24, omega2 = omega + Math.PI / 24;
+    const Ra = (12 * 60 / Math.PI) * GSC * dr * ((omega2 - omega1) * Math.sin(latRad) * Math.sin(dec) + Math.cos(latRad) * Math.cos(dec) * (Math.sin(omega2) - Math.sin(omega1)));
+    return { Ra: Math.max(0, Ra), dr, dec, omega };
+  };
+  M.clearSkyRadiation = (Ra, z) => (0.75 + 2e-5 * z) * Ra;
+  M.netShortwave = (Rs, albedo) => (1 - albedo) * Rs;
+  M.netLongwaveDaily = function (Tmax, Tmin, ea, Rs, Rso) {
+    const ratio = Rso > 0 ? clamp(Rs / Rso, 0, 1) : 1;
+    const cloudFactor = clamp(1.35 * ratio - 0.35, 0.05, 1.0);
+    const tempTerm = (Math.pow(Tmax + 273.16, 4) + Math.pow(Tmin + 273.16, 4)) / 2;
+    const humTerm = clamp(0.34 - 0.14 * Math.sqrt(Math.max(0, ea)), 0.05, 1.0);
+    return SIGMA * tempTerm * humTerm * cloudFactor;
+  };
+  M.netLongwaveHourly = function (T, ea, Rs, Rso, prevRatioRef) {
+    let ratio;
+    if (Rso > 0.05) { ratio = clamp(Rs / Rso, 0, 1); prevRatioRef.v = ratio; }
+    else ratio = prevRatioRef.v;
+    const cloudFactor = clamp(1.35 * ratio - 0.35, 0.05, 1.0);
+    const humTerm = clamp(0.34 - 0.14 * Math.sqrt(Math.max(0, ea)), 0.05, 1.0);
+    return SIGMA_HR * Math.pow(T + 273.16, 4) * humTerm * cloudFactor;
+  };
+  M.aerodynamicResistance = function (h, uz, zm, zh) {
+    zm = zm || 2; zh = zh || 2;
+    const d = 0.67 * h, zom = 0.123 * h, zoh = 0.1 * zom;
+    if (zm - d <= 0 || zh - d <= 0) return NaN;
+    return (Math.log((zm - d) / zom) * Math.log((zh - d) / zoh)) / (KARMAN * KARMAN * Math.max(uz, 0.01));
+  };
+  M.windSpeedToHeight = (uz, zMeasured, zTarget) => uz * (Math.log(67.8 * (zTarget || 2) - 5.42) / Math.log(67.8 * zMeasured - 5.42));
+  M.surfaceResistance = (Rs, rcDay, rcNight) => Rs > 0 ? rcDay : rcNight;
+  M.latentHeatFlux = (Delta, Rn, G, gamma, rhoCp, VPD, ra, rc) => (Delta * (Rn - G) + (rhoCp * VPD) / ra) / (Delta + gamma * (1 + rc / ra));
+  M.leToEto = (LE_Wm2, seconds) => (LE_Wm2 * seconds) / (1000 * LAMBDA * 1e6) * 1000;
+  M.MJtoW = (MJ, seconds) => (MJ * 1e6) / seconds;
+  M.WtoMJ = (W, seconds) => (W * seconds) / 1e6;
+  M.clamp = clamp;
+  M.constants = { SIGMA, SIGMA_HR, GSC, KARMAN, LAMBDA };
+  return M;
+})();
+
+const TS = (function () {
+  function applyOverride(ra, rc, ov) {
+    if (!ov) return { ra, rc };
+    let ra2 = (ov.raAbs !== undefined && ov.raAbs !== null) ? ov.raAbs : ra;
+    let rc2 = (ov.rcAbs !== undefined && ov.rcAbs !== null) ? ov.rcAbs : rc;
+    if (ov.raMult) ra2 = ra2 * ov.raMult;
+    if (ov.rcMult) rc2 = rc2 * ov.rcMult;
+    return { ra: ra2, rc: rc2 };
+  }
+  const T = {};
+  T.daily = function (site, rec, ov) {
+    const latRad = site.lat * Math.PI / 180;
+    const P = PM.atmPressure(site.elevM), gamma = PM.psychrometricConstant(P);
+    const Tmean = rec.Tmean !== undefined ? rec.Tmean : (rec.Tmax + rec.Tmin) / 2;
+    const esTmax = PM.satVaporPressure(rec.Tmax), esTmin = PM.satVaporPressure(rec.Tmin);
+    const es = (esTmax + esTmin) / 2;
+    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: Tmean, es }, rec));
+    const Delta = PM.slopeSatVaporPressure(Tmean);
+    const solar = PM.extraterrestrialRadiationDaily(rec.J, latRad);
+    const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
+    let Rs = rec.Rs;
+    if ((Rs === undefined || Rs === null) && rec.n !== undefined) Rs = (0.25 + 0.50 * (rec.n / solar.N)) * solar.Ra;
+    const Rns = PM.netShortwave(Rs, site.albedo);
+    const Rnl = PM.netLongwaveDaily(rec.Tmax, rec.Tmin, ea, Rs, Rso);
+    const Rn_MJ = Rns - Rnl, G_MJ = 0, seconds = 86400;
+    const RnW = PM.MJtoW(Rn_MJ, seconds), GW = PM.MJtoW(G_MJ, seconds);
+    const rhoCp = PM.rhoCp(Tmean, P, ea);
+    let ra = PM.aerodynamicResistance(site.h, rec.u2, site.zm, site.zh);
+    let rc = PM.surfaceResistance(1, site.rcDay, site.rcDay);
+    ({ ra, rc } = applyOverride(ra, rc, ov));
+    const VPD = Math.max(0, es - ea);
+    const LE = PM.latentHeatFlux(Delta, RnW, GW, gamma, rhoCp, VPD, ra, rc);
+    return { ETo: PM.leToEto(LE, seconds), Rn: Rn_MJ, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, G: G_MJ, Tmean, P };
+  };
+  T.hourly = function (site, rec, prevRatioRef, ov) {
+    const latRad = site.lat * Math.PI / 180;
+    const P = PM.atmPressure(site.elevM), gamma = PM.psychrometricConstant(P);
+    const es = PM.satVaporPressure(rec.T);
+    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: rec.T, es }, rec));
+    const Delta = PM.slopeSatVaporPressure(rec.T);
+    const solar = PM.extraterrestrialRadiationHourly(rec.J, latRad, site.lon, site.utcOffset, rec.hour);
+    const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
+    const Rs_Wm2 = rec.Rs, Rs = Rs_Wm2 * 0.0036;
+    const Rns = PM.netShortwave(Rs, site.albedo);
+    const Rnl = PM.netLongwaveHourly(rec.T, ea, Rs, Rso, prevRatioRef);
+    const Rn_MJ = Rns - Rnl, seconds = 3600;
+    const RnW = PM.MJtoW(Rn_MJ, seconds);
+    const GW = Rn_MJ < 0 ? 0.5 * RnW : 0.1 * RnW;
+    const rhoCp = PM.rhoCp(rec.T, P, ea);
+    let ra = PM.aerodynamicResistance(site.h, rec.u, site.zm, site.zh);
+    let rc = PM.surfaceResistance(Rs, site.rcDay, site.rcNight);
+    ({ ra, rc } = applyOverride(ra, rc, ov));
+    const VPD = Math.max(0, es - ea);
+    const LE = PM.latentHeatFlux(Delta, RnW, GW, gamma, rhoCp, VPD, ra, rc);
+    return { ETo: PM.leToEto(LE, seconds), Rn: Rn_MJ, Rs, Rs_Wm2, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, G: PM.WtoMJ(GW, seconds), T: rec.T };
+  };
+  T.monthly = function (site, rec, ov) {
+    const latRad = site.lat * Math.PI / 180;
+    const P = PM.atmPressure(site.elevM), gamma = PM.psychrometricConstant(P);
+    const Tmean = rec.Tmean !== undefined ? rec.Tmean : (rec.Tmax + rec.Tmin) / 2;
+    const esTmax = PM.satVaporPressure(rec.Tmax), esTmin = PM.satVaporPressure(rec.Tmin);
+    const es = (esTmax + esTmin) / 2;
+    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: Tmean, es }, rec));
+    const Delta = PM.slopeSatVaporPressure(Tmean);
+    const solar = PM.extraterrestrialRadiationDaily(rec.J, latRad);
+    const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
+    let Rs = rec.Rs;
+    if ((Rs === undefined || Rs === null) && rec.n !== undefined) Rs = (0.25 + 0.50 * (rec.n / solar.N)) * solar.Ra;
+    const Rns = PM.netShortwave(Rs, site.albedo);
+    const Rnl = PM.netLongwaveDaily(rec.Tmax, rec.Tmin, ea, Rs, Rso);
+    const Rn_MJ_day = Rns - Rnl;
+    let G_MJ_day = 0;
+    if (rec.TmeanNext !== undefined) G_MJ_day = 0.07 * (rec.TmeanNext - (rec.TmeanPrev !== undefined ? rec.TmeanPrev : Tmean));
+    else if (rec.TmeanPrev !== undefined) G_MJ_day = 0.14 * (Tmean - rec.TmeanPrev);
+    const seconds = 86400;
+    const RnW = PM.MJtoW(Rn_MJ_day, seconds), GW = PM.MJtoW(G_MJ_day, seconds);
+    const rhoCp = PM.rhoCp(Tmean, P, ea);
+    let ra = PM.aerodynamicResistance(site.h, rec.u2, site.zm, site.zh);
+    let rc = PM.surfaceResistance(1, site.rcDay, site.rcDay);
+    ({ ra, rc } = applyOverride(ra, rc, ov));
+    const VPD = Math.max(0, es - ea);
+    const LE = PM.latentHeatFlux(Delta, RnW, GW, gamma, rhoCp, VPD, ra, rc);
+    const EToDay = PM.leToEto(LE, seconds);
+    const days = rec.daysInMonth || 30;
+    return { ETo: EToDay * days, EToDayMean: EToDay, Rn: Rn_MJ_day, G: G_MJ_day, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, Tmean, days };
+  };
+  return T;
+})();
+</script>
+<script>
+/* =========================================================================
+   RefET-PM application logic
+   ========================================================================= */
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------- Unit conv
+const CONV = {
+  temp:  { toDisp:(v,u)=> u==='SI'? v : v*9/5+32,        toSI:(v,u)=> u==='SI'? v : (v-32)*5/9,     unit:{SI:'°C',IMP:'°F'} },
+  wind:  { toDisp:(v,u)=> u==='SI'? v : v*2.23694,        toSI:(v,u)=> u==='SI'? v : v/2.23694,       unit:{SI:'m/s',IMP:'mph'} },
+  len:   { toDisp:(v,u)=> u==='SI'? v : v*3.28084,        toSI:(v,u)=> u==='SI'? v : v/3.28084,       unit:{SI:'m',IMP:'ft'} },
+  radH:  { toDisp:(v,u)=> u==='SI'? v : v*0.317,          toSI:(v,u)=> u==='SI'? v : v/0.317,         unit:{SI:'W/m²',IMP:'Btu/ft²/h'} },
+  radD:  { toDisp:(v,u)=> u==='SI'? v : v*88.055,         toSI:(v,u)=> u==='SI'? v : v/88.055,        unit:{SI:'MJ/m²/day',IMP:'Btu/ft²/day'} },
+  eto:   { toDisp:(v,u)=> u==='SI'? v : v/25.4,           toSI:(v,u)=> u==='SI'? v : v*25.4,          unit:{SI:'mm',IMP:'in'} },
+  none:  { toDisp:v=>v, toSI:v=>v, unit:{SI:'',IMP:''} },
+};
+
+// ------------------------------------------------------------------- State
+const App = {
+  units: 'SI',
+  timestep: 'hourly',
+  site: { lat: 38.5449, lon: -121.7405, elevM: 18, utcOffset: -8, albedo: 0.23, h: 0.12, rcDay: 70, rcNight: 70, zm: 2, zh: 2 },
+  data: [],
+  results: [],
+  dataPage: 0,
+  pageSize: 60,
+  map: null, marker: null,
+  charts: {},
+  sens: { record: 0, scope: 'single' },
+};
+window.App = App;
+
+function todayISO(offsetDays) {
+  const d = new Date(); d.setDate(d.getDate() + (offsetDays||0));
+  return d.toISOString().slice(0,10);
+}
+function dateToDOY(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const start = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.floor((d - start) / 86400000) + 1;
+}
+function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+
+// ================================================================== TABS
+document.querySelectorAll('nav.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('main .panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'setup' && App.map) setTimeout(()=>App.map.invalidateSize(), 50);
+  });
+});
+
+// ============================================================ UNIT TOGGLE
+document.getElementById('unitToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  App.units = btn.dataset.val;
+  document.querySelectorAll('#unitToggle button').forEach(b=>b.classList.toggle('active', b===btn));
+  refreshUnitLabels();
+  refreshSetupFields();
+  renderDataTable();
+  if (App.results.length) renderResults();
+  refreshSensUnits();
+});
+function refreshUnitLabels() {
+  document.querySelectorAll('.u-elev,.u-len').forEach(el => el.textContent = CONV.len.unit[App.units]);
+}
+
+// =========================================================== STEP TOGGLE
+document.getElementById('stepToggle').addEventListener('change', (e) => {
+  const newVal = e.target.value;
+  if (App.data.length && !confirm('Switching timestep clears the currently loaded data table. Continue?')) {
+    e.target.value = App.timestep; // revert the dropdown -- the user declined the clear
+    return;
+  }
+  App.timestep = newVal;
+  App.data = []; App.results = [];
+  document.getElementById('nasaEndWrap').classList.toggle('hidden', App.timestep==='monthly');
+  document.getElementById('nasaYearWrap').classList.toggle('hidden', App.timestep!=='monthly');
+  document.getElementById('rcNight').disabled = (App.timestep !== 'hourly');
+  document.getElementById('btnAddYear').classList.toggle('hidden', App.timestep !== 'monthly');
+  updateNasaAvailability();
+  renderDataTable();
+  renderResults();
+});
+function updateNasaAvailability() {
+  // NASA POWER (daily/monthly climatology) and Open-Meteo (hourly, since NASA POWER's
+  // hourly solar-radiation product has a much longer processing latency and is often
+  // unavailable for recent dates) are mutually exclusive by timestep.
+  const nasaAvailable = App.timestep !== 'hourly';
+  const omAvailable = App.timestep === 'hourly';
+
+  const nasaBtn = document.getElementById('showNasaPanel');
+  nasaBtn.disabled = !nasaAvailable;
+  nasaBtn.classList.toggle('secondary', !nasaAvailable);
+  document.getElementById('nasaHourlyNote').classList.toggle('hidden', nasaAvailable);
+
+  const omBtn = document.getElementById('showOpenMeteoPanel');
+  omBtn.disabled = !omAvailable;
+  omBtn.classList.toggle('secondary', !omAvailable);
+  document.getElementById('openMeteoDailyNote').classList.toggle('hidden', omAvailable);
+
+  // If the panel that's currently open just became unavailable for this timestep,
+  // fall back to whichever online source (if any) is available, else manual entry.
+  const nasaOpen = !document.getElementById('nasaPanel').classList.contains('hidden');
+  const omOpen = !document.getElementById('openMeteoPanel').classList.contains('hidden');
+  if ((nasaOpen && !nasaAvailable) || (omOpen && !omAvailable)) {
+    showDataSource(omAvailable ? 'openMeteoPanel' : (nasaAvailable ? 'nasaPanel' : 'manualPanel'));
+  }
+}
+
+// =============================================================== SETUP TAB
+const setupFieldDefs = [
+  { id:'lat', key:'lat', kind:'none' },
+  { id:'lon', key:'lon', kind:'none' },
+  { id:'elev', key:'elevM', kind:'len' },
+  { id:'utcOffset', key:'utcOffset', kind:'none' },
+  { id:'albedo', key:'albedo', kind:'none' },
+  { id:'cropH', key:'h', kind:'len' },
+  { id:'rcDay', key:'rcDay', kind:'none' },
+  { id:'rcNight', key:'rcNight', kind:'none' },
+  { id:'zm', key:'zm', kind:'len' },
+  { id:'zh', key:'zh', kind:'len' },
+];
+setupFieldDefs.forEach(f => {
+  document.getElementById(f.id).addEventListener('change', (e) => {
+    const raw = parseFloat(e.target.value);
+    if (isNaN(raw)) return;
+    App.site[f.key] = CONV[f.kind].toSI(raw, App.units);
+    if (f.id === 'lon') suggestUtcOffset();
+  });
+});
+function refreshSetupFields() {
+  setupFieldDefs.forEach(f => {
+    const el = document.getElementById(f.id);
+    const disp = CONV[f.kind].toDisp(App.site[f.key], App.units);
+    el.value = Math.round(disp * 10000) / 10000;
+  });
+}
+function suggestUtcOffset() {
+  const suggested = Math.round(App.site.lon / 15);
+  document.getElementById('utcOffset').value = suggested;
+  App.site.utcOffset = suggested;
+}
+
+// Surface presets. `rcVaries: false` marks a surface whose formulation has no
+// physically meaningful stomatal/canopy resistance term (e.g. open water) --
+// the Sensitivity tab disables the r_c control for those rather than letting
+// it perturb a parameter that isn't really part of the model for that surface.
+const PRESETS = {
+  grass70:   { albedo:0.23, h:0.12, rcDay:70, rcNight:70, rcVaries:true },
+  grassNight:{ albedo:0.23, h:0.12, rcDay:70, rcNight:200, rcVaries:true },
+  water:     { albedo:0.10, h:0.001, rcDay:1, rcNight:1, rcVaries:false },
+  alfalfa:   { albedo:0.23, h:0.50, rcDay:45, rcNight:45, rcVaries:true },
+};
+App.presetKey = 'grass70';
+document.getElementById('surfacePreset').addEventListener('change', (e) => {
+  App.presetKey = e.target.value;
+  const p = PRESETS[e.target.value];
+  if (p) { Object.assign(App.site, p); refreshSetupFields(); }
+  updateSensControlsForPreset();
+});
+// Manually editing surface parameters detaches from the named preset (so the
+// r_c sensitivity control doesn't stay wrongly locked/unlocked for "custom").
+['albedo','cropH','rcDay','rcNight'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    App.presetKey = 'custom';
+    document.getElementById('surfacePreset').value = 'custom';
+    updateSensControlsForPreset();
+  });
+});
+function presetAllowsRc() {
+  const p = PRESETS[App.presetKey];
+  return p ? p.rcVaries !== false : true; // 'custom' (no matching preset) always allows it
+}
+function updateSensControlsForPreset() {
+  const allow = presetAllowsRc();
+  const rcInput = document.getElementById('sRC');
+  rcInput.disabled = !allow;
+  if (!allow) { rcInput.value = 0; document.getElementById('vRC').textContent = 'N/A'; }
+  else { document.getElementById('vRC').textContent = sliderLabelFmt.sRC(parseFloat(rcInput.value)); }
+  document.getElementById('rcNote').classList.toggle('hidden', allow);
+  if (App.results.length) runSensitivity();
+}
+
+// Leaflet map
+function mapStatus(msg, isError) {
+  const el = document.getElementById('mapStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('tag-warn', !!isError);
+  el.classList.toggle('hidden', !msg);
+}
+function initMap() {
+  if (typeof L === 'undefined') {
+    document.getElementById('map').innerHTML = '<div style="padding:16px;color:var(--muted);font-size:.85rem;">Map library did not load (no network access to the CDN from this browser). You can still enter latitude/longitude manually above.</div>';
+    return;
+  }
+  // Marker icon embedded as a base64 data URI and built via a plain L.icon(), NOT
+  // L.Icon.Default -- Leaflet's Icon.Default._getIconUrl unconditionally prepends
+  // an auto-detected "imagePath" in front of iconUrl (even a full URL or data URI),
+  // which silently mangled the icon into a broken image (alt text "Marker") no
+  // matter what iconUrl was set to. A plain L.icon() has no such prefixing.
+  const pinIcon = L.icon({
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+    iconUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAApCAYAAADAk4LOAAAFgUlEQVR4Aa1XA5BjWRTN2oW17d3YaZtr2962HUzbDNpjszW24mRt28p47v7zq/bXZtrp/lWnXr337j3nPCe85NcypgSFdugCpW5YoDAMRaIMqRi6aKq5E3YqDQO3qAwjVWrD8Ncq/RBpykd8oZUb/kaJutow8r1aP9II0WmLKLIsJyv1w/kqw9Ch2MYdB++12Onxee/QMwvf4/Dk/Lfp/i4nxTXtOoQ4pW5Aj7wpici1A9erdAN2OH64x8OSP9j3Ft3b7aWkTg/Fm91siTra0f9on5sQr9INejH6CUUUpavjFNq1B+Oadhxmnfa8RfEmN8VNAsQhPqF55xHkMzz3jSmChWU6f7/XZKNH+9+hBLOHYozuKQPxyMPUKkrX/K0uWnfFaJGS1QPRtZsOPtr3NsW0uyh6NNCOkU3Yz+bXbT3I8G3xE5EXLXtCXbbqwCO9zPQYPRTZ5vIDXD7U+w7rFDEoUUf7ibHIR4y6bLVPXrz8JVZEql13trxwue/uDivd3fkWRbS6/IA2bID4uk0UpF1N8qLlbBlXs4Ee7HLTfV1j54APvODnSfOWBqtKVvjgLKzF5YdEk5ewRkGlK0i33Eofffc7HT56jD7/6U+qH3Cx7SBLNntH5YIPvODnyfIXZYRVDPqgHtLs5ABHD3YzLuespb7t79FY34DjMwrVrcTuwlT55YMPvOBnRrJ4VXTdNnYug5ucHLBjEpt30701A3Ts+HEa73u6dT3FNWwflY86eMHPk+Yu+i6pzUpRrW7SNDg5JHR4KapmM5Wv2E8Tfcb1HoqqHMHU+uWDD7zg54mz5/2BSnizi9T1Dg4QQXLToGNCkb6tb1NU+QAlGr1++eADrzhn/u8Q2YZhQVlZ5+CAOtqfbhmaUCS1ezNFVm2imDbPmPng5wmz+gwh+oHDce0eUtQ6OGDIyR0uUhUsoO3vfDmmgOezH0mZN59x7MBi++WDL1g/eEiU3avlidO671bkLfwbw5XV2P8Pzo0ydy4t2/0eu33xYSOMOD8hTf4CrBtGMSoXfPLchX+J0ruSePw3LZeK0juPJbYzrhkH0io7B3k164hiGvawhOKMLkrQLyVpZg8rHFW7E2uHOL888IBPlNZ1FPzstSJM694fWr6RwpvcJK60+0HCILTBzZLFNdtAzJaohze60T8qBzyh5ZuOg5e7uwQppofEmf2++DYvmySqGBuKaicF1blQjhuHdvCIMvp8whTTfZzI7RldpwtSzL+F1+wkdZ2TBOW2gIF88PBTzD/gpeREAMEbxnJcaJHNHrpzji0gQCS6hdkEeYt9DF/2qPcEC8RM28Hwmr3sdNyht00byAut2k3gufWNtgtOEOFGUwcXWNDbdNbpgBGxEvKkOQsxivJx33iow0Vw5S6SVTrpVq11ysA2Rp7gTfPfktc6zhtXBBC+adRLshf6sG2RfHPZ5EAc4sVZ83yCN00Fk/4kggu40ZTvIEm5g24qtU4KjBrx/BTTH8ifVASAG7gKrnWxJDcU7x8X6Ecczhm3o6YicvsLXWfh3Ch1W0k8x0nXF+0fFxgt4phz8QvypiwCCFKMqXCnqXExjq10beH+UUA7+nG6mdG/Pu0f3LgFcGrl2s0kNNjpmoJ9o4B29CMO8dMT4Q5ox8uitF6fqsrJOr8qnwNbRzv6hSnG5wP+64C7h9lp30hKNtKdWjtdkbuPA19nJ7Tz3zR/ibgARbhb4AlhavcBebmTHcFl2fvYEnW0ox9xMxKBS8btJ+KiEbq9zA4RthQXDhPa0T9TEe69gWupwc6uBUphquXgf+/FrIjweHQS4/pduMe5ERUMHUd9xv8ZR98CxkS4F2n3EUrUZ10EYNw7BWm9x1GiPssi3GgiGRDKWRYZfXlON+dfNbM+GgIwYdwAAAAASUVORK5CYII=',
+    iconRetinaUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABSCAMAAAAhFXfZAAAC91BMVEVMaXEzeak2f7I4g7g3g7cua5gzeKg8hJo3grY4g7c3grU0gLI2frE0daAubJc2gbQwd6QzeKk2gLMtd5sxdKIua5g1frA2f7IydaM0e6w2fq41fK01eqo3grgubJgta5cxdKI1f7AydaQydaMxc6EubJgvbJkwcZ4ubZkwcJwubZgubJcydqUydKIxapgubJctbJcubZcubJcvbJYubJcvbZkubJctbJctbZcubJg2f7AubJcrbZcubJcubJcua5g3grY0fq8ubJcubJdEkdEwhsw6i88vhswuhcsuhMtBjMgthMsrg8srgss6is8qgcs8i9A9iMYtg8spgcoogMo7hcMngMonf8olfso4gr8kfck5iM8jfMk4iM8he8k1fro7itAgesk2hs8eecgzfLcofssdeMg0hc4cd8g2hcsxeLQbdsgZdcgxeLImfcszhM0vda4xgckzhM4xg84wf8Yxgs4udKsvfcQucqhUndROmdM1fK0wcZ8vb5w0eqpQm9MzeKhXoNVcpdYydKNWn9VZotVKltJFjsIwcJ1Rms9OlslLmtH///8+kc9epdYzd6dbo9VHkMM2f7FHmNBClM8ydqVcpNY9hro3gLM9hLczealQmcw3fa46f7A8gLMxc6I3eagyc6FIldJMl9JSnNRSntNNl9JPnNJFi75UnM9ZodVKksg8kM45jc09e6ZHltFBk883gbRBh7pDk9EwcaBzn784g7dKkcY2i81Om9M7j85Llc81is09g7Q4grY/j9A0eqxKmdFFltBEjcXf6fFImdBCiLxJl9FGlNFBi78yiMxVndEvbpo6js74+vx+psPP3+o/ks5HkcpGmNCjwdZCkNDM3ehYoNJEls+lxNkxh8xHks0+jdC1zd5Lg6r+/v/H2ufz9/o3jM3t8/edvdM/k89Th61OiLBSjbZklbaTt9BfptdjmL1AicBHj8hGk9FAgK1dkLNTjLRekrdClc/k7fM0icy0y9tgp9c4jc2NtM9Dlc8zicxeXZn3AAAAQ3RSTlMAHDdTb4yPA+LtnEQmC4L2EmHqB7XA0d0sr478x4/Yd5i1zOfyPkf1sLVq4Nh3FvjxopQ2/STNuFzUwFIwxKaejILpIBEV9wAABhVJREFUeF6s1NdyFEcYBeBeoQIhRAkLlRDGrhIgY3BJL8CVeKzuyXFzzjkn5ZxzzuScg3PO8cKzu70JkO0LfxdTU//pM9vTu7Xgf6KqOVTb9X7toRrVEfBf1HTVjZccrT/2by1VV928Yty9ZbVuucdz90frG8DBjl9pVApbOstvmMuvVgaNXSfAAd6pGxpy6yxf5ph43pS/4f3uoaGm2rdu72S9xzOvMymkZFq/ptDrk90mhW7e4zl7HLzhxGWPR20xmSxJ/VqldG5m9XhaVOA1DadsNh3Pu5L2N6QtPO/32JpqQBVVk20oy/Pi2s23WEvyfHbe1thadVQttvm7Llf65gGmXK67XtupyoM7HQhmXdLS8oGWJNeOJ3C5fG5XCEJnkez3/oFdsvgJ4l2ANZwhrJKk/7OSXa+3Vw2WJMlKnGkobouYk6T0TyX30klOUnTD9HJ5qpckL3EW/w4XF3Xd0FGywXUrstrclVsqz5Pd/sXFYyDnPdrLcQODmGOK47IZb4CmibmMn+MYRzFZ5jg33ZL/EJrWcszHmANy3ARBK/IXtciJy8VsitPSdE3uuHxzougojcUdr8/32atnz/ev3f/K5wtpxUTpcaI45zusVDpYtZi+jg0oU9b3x74h7+n9ABvYEZeKaVq0sh0AtLKsFtqNBdeT0MrSzwwlq9+x6xAO4tgOtSzbCjrNQQiNvQUbUEubvzBUeGw26yDCsRHCoLkTHDa7IdOLIThs/gHvChszh2CimE8peRs47cxANI0lYNB5y1DljpOF0IhzBDPOZnDOqYYbeGKECbPzWnXludPphw5c2YBq5zlwXphIbO4VDCZ0gnPfUO1TwZoYwAs2ExPCedAu9DAjfQUjzITQb3jNj0KG2Sgt6BHaQUdYzWz+XmBktOHwanXjaSTcwwziBcuMOtwBmqPrTOxFQR/DRKKPqyur0aiW6cULYsx6tBm0jXpR/AUWR6HRq9WVW6MRhIq5jLyjbaCTDCijyYJNpCajdyobP/eTw0iexBAKkJ3gA5KcQb2zBXsIBckn+xVv8jkZSaEFHE+jFEleAEfayRU0MouNoBmB/L50Ai/HSLIHxcrpCvnhSQAuakKp2C/YbCylJjXRVy/z3+Kv/RrNcCo+WUzlVEhzKffnTQnxeN9fWF88fiNCUdSTsaufaChKWInHeysygfpIqagoakW+vV20J8uyl6TyNKEZWV4oRSPyCkWpgOLSbkCObT8o2r6tlG58HQquf6O0v50tB7JM7F4EORd2dx/K0w/KHsVkLPaoYrwgP/y7krr3SSMA4zj+OBgmjYkxcdIJQyQRKgg2viX9Hddi9UBb29LrKR7CVVEEEXWojUkXNyfTNDE14W9gbHJNuhjDettN3ZvbOvdOqCD3Jp/9l+/wJE+9PkYGjx/fqkys3S2rMozM/o2106rfMUINo6hVqz+eu/hd1c4xTg0TAfy5kV+4UG6+IthHTU9woWmxuKNbTfuCSfovBCxq7EtHqvYL4Sm6F8GVxsSXHMQ07TOi1DKtZxjWaaIyi4CXWjxPccUw8WVbMYY5wxC1mzEyXMJWkllpRloi+Kkoq69sxBTlElF6aAxYUbjXNlhlDZilDnM4U5SlN5biRsRHnbx3mbeWjEh4mEyiuJDl5XcWVmX5GvNkFgLWZM5qwsop4/AWfLhU1cR7k1VVvcYCWRkOI6Xy5gmnphCYIkvzuNYzHzosq2oNk2RtSs8khfUOfHIDgR6ysYBaMpl4uEgk2U/oJTs9AaTSwma7dT69geAE2ZpEjUsn2ieJNHeKfrI3EcAGJ2ZaNgVuC8EBctCLc57P5u5led6IOBkIYkuQMrmmjChs4VkfOerHqSBkPzZlhe06RslZ3zMjk2sscqKwY0RcjKK+LWbzd7KiHhkncs/siFJ+V5eXxD34B8nVuJEpGJNmxN2gH3vSvp7J70tF+D1Ej8qUJD1TkErAND2GZwTFg/LubvmgiBG3SOvdlsqFQrkEzJCL1rstlnVFROixZoDDSuXQFHESwVGlcuQcMb/b42NgjLowh5MTDFE3vNB5qStRIErdCQEh6pLPR92anSUb/wAIhldAaDMpGgAAAABJRU5ErkJggg==',
+    shadowUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAApCAQAAAACach9AAACMUlEQVR4Ae3ShY7jQBAE0Aoz/f9/HTMzhg1zrdKUrJbdx+Kd2nD8VNudfsL/Th///dyQN2TH6f3y/BGpC379rV+S+qqetBOxImNQXL8JCAr2V4iMQXHGNJxeCfZXhSRBcQMfvkOWUdtfzlLgAENmZDcmo2TVmt8OSM2eXxBp3DjHSMFutqS7SbmemzBiR+xpKCNUIRkdkkYxhAkyGoBvyQFEJEefwSmmvBfJuJ6aKqKWnAkvGZOaZXTUgFqYULWNSHUckZuR1HIIimUExutRxwzOLROIG4vKmCKQt364mIlhSyzAf1m9lHZHJZrlAOMMztRRiKimp/rpdJDc9Awry5xTZCte7FHtuS8wJgeYGrex28xNTd086Dik7vUMscQOa8y4DoGtCCSkAKlNwpgNtphjrC6MIHUkR6YWxxs6Sc5xqn222mmCRFzIt8lEdKx+ikCtg91qS2WpwVfBelJCiQJwvzixfI9cxZQWgiSJelKnwBElKYtDOb2MFbhmUigbReQBV0Cg4+qMXSxXSyGUn4UbF8l+7qdSGnTC0XLCmahIgUHLhLOhpVCtw4CzYXvLQWQbJNmxoCsOKAxSgBJno75avolkRw8iIAFcsdc02e9iyCd8tHwmeSSoKTowIgvscSGZUOA7PuCN5b2BX9mQM7S0wYhMNU74zgsPBj3HU7wguAfnxxjFQGBE6pwN+GjME9zHY7zGp8wVxMShYX9NXvEWD3HbwJf4giO4CFIQxXScH1/TM+04kkBiAAAAAElFTkSuQmCC',
+  });
+  App.map = L.map('map').setView([App.site.lat, App.site.lon], 6);
+  // Two base layers the user can switch between (top-right control): a street map
+  // (CartoDB Voyager -- visually a standard labelled road map, and more tolerant of
+  // being loaded from a local file:// page than raw tile.openstreetmap.org, which
+  // some mirrors rate-limit/refuse without an HTTP referer) and satellite imagery.
+  const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19, subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  });
+  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Esri, Maxar, Earthstar Geographics',
+  });
+  streetLayer.addTo(App.map);
+  L.control.layers({ 'Street': streetLayer, 'Satellite': satelliteLayer }, null, { position: 'topright' }).addTo(App.map);
+
+  let tileErrorShown = false;
+  [streetLayer, satelliteLayer].forEach(layer => {
+    layer.on('tileerror', () => {
+      if (tileErrorShown) return; tileErrorShown = true;
+      mapStatus('Map imagery failed to load (no network access to the tile server from this browser) — you can still click the map to set coordinates.', true);
+    });
+    layer.on('tileload', () => { if (!tileErrorShown) mapStatus(''); });
+  });
+  App.marker = L.marker([App.site.lat, App.site.lon], { icon: pinIcon, draggable: true }).addTo(App.map);
+  App.marker.on('dragend', () => { const p = App.marker.getLatLng(); setLatLon(p.lat, p.lng); });
+  App.map.on('click', (e) => { App.marker.setLatLng(e.latlng); setLatLon(e.latlng.lat, e.latlng.lng); });
+}
+function setLatLon(lat, lon) {
+  App.site.lat = Math.round(lat*10000)/10000; App.site.lon = Math.round(lon*10000)/10000;
+  document.getElementById('lat').value = App.site.lat;
+  document.getElementById('lon').value = App.site.lon;
+  suggestUtcOffset();
+}
+try { initMap(); } catch(e) {
+  console.warn('Map init failed:', e);
+  mapStatus('Map failed to initialize (' + e.message + ') — enter latitude/longitude manually above.', true);
+}
+
+// Geocoding (Nominatim)
+document.getElementById('btnGeocode').addEventListener('click', doGeocode);
+document.getElementById('locSearch').addEventListener('keydown', (e)=>{ if (e.key==='Enter') doGeocode(); });
+async function doGeocode() {
+  const q = document.getElementById('locSearch').value.trim();
+  const box = document.getElementById('geocodeResults');
+  if (!q) return;
+  box.innerHTML = 'Searching&hellip;';
+  try {
+    const resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(q));
+    const results = await resp.json();
+    if (!results.length) { box.innerHTML = '<div class="tag-warn">No results found.</div>'; return; }
+    box.innerHTML = results.map((r,i) => `<div class="small" style="padding:4px 0;cursor:pointer;color:#0a3d75;" data-i="${i}">${r.display_name}</div>`).join('');
+    box.querySelectorAll('div[data-i]').forEach(el => el.addEventListener('click', () => {
+      const r = results[+el.dataset.i];
+      setLatLon(parseFloat(r.lat), parseFloat(r.lon));
+      if (App.map) {
+        App.marker.setLatLng([r.lat, r.lon]);
+        if (r.boundingbox) {
+          // boundingbox = [south, north, west, east] (strings) -- fit to the actual
+          // extent of the place found, so a street address zooms in tight and a
+          // country/region search zooms out appropriately, rather than one fixed level.
+          const [south, north, west, east] = r.boundingbox.map(parseFloat);
+          App.map.fitBounds([[south, west], [north, east]], { maxZoom: 17, padding: [20, 20] });
+        } else {
+          App.map.setView([r.lat, r.lon], 14);
+        }
+      }
+      // Nominatim doesn't return elevation -- look it up separately (Open-Meteo's free
+      // elevation API, SRTM/Copernicus-DEM based) and update the elevation field to match
+      // the new location, same as lat/lon just did.
+      box.innerHTML = '<div class="tag-ok">Located: ' + r.display_name + '. Looking up elevation&hellip;</div>';
+      fetchElevation(parseFloat(r.lat), parseFloat(r.lon)).then(elev => {
+        if (elev !== null) {
+          App.site.elevM = elev;
+          refreshSetupFields();
+          box.innerHTML = '<div class="tag-ok">Located: ' + r.display_name + '. Elevation set to ' + CONV.len.toDisp(elev, App.units).toFixed(1) + '&nbsp;' + CONV.len.unit[App.units] + '.</div>';
+        } else {
+          box.innerHTML = '<div class="tag-warn">Located: ' + r.display_name + '. Elevation lookup failed &mdash; enter it manually if needed.</div>';
+        }
+      });
+    }));
+  } catch (err) {
+    box.innerHTML = '<div class="tag-err">Search failed &mdash; this reaches an external service, so it only works when this page is open in your own browser (not a sandboxed preview). ' + err.message + '</div>';
+  }
+}
+async function fetchElevation(lat, lon) {
+  try {
+    const resp = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
+    if (!resp.ok) return null;
+    const j = await resp.json();
+    return (j.elevation && j.elevation[0] !== undefined) ? j.elevation[0] : null;
+  } catch (e) { return null; }
+}
+
+// =============================================================== DATA TAB
+document.getElementById('showNasaPanel').addEventListener('click', () => showDataSource('nasaPanel'));
+document.getElementById('showOpenMeteoPanel').addEventListener('click', () => showDataSource('openMeteoPanel'));
+document.getElementById('showExcelPanel').addEventListener('click', () => showDataSource('excelPanel'));
+document.getElementById('showManualPanel').addEventListener('click', () => showDataSource('manualPanel'));
+function showDataSource(id) {
+  ['nasaPanel','openMeteoPanel','excelPanel','manualPanel'].forEach(p => document.getElementById(p).classList.toggle('hidden', p!==id));
+}
+document.getElementById('nasaStart').value = todayISO(-7);
+document.getElementById('nasaEnd').value = todayISO(-1);
+
+// ---- NASA POWER ----
+document.getElementById('btnNasaFetch').addEventListener('click', fetchNasaPower);
+async function fetchNasaPower() {
+  const status = document.getElementById('nasaStatus');
+  status.innerHTML = '<div class="tag-warn">Fetching from NASA POWER&hellip;</div>';
+  const { lat, lon } = App.site;
+  try {
+    let url, community, params;
+    if (App.timestep === 'hourly') {
+      params = 'T2M,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'RE';
+      const s = document.getElementById('nasaStart').value.replace(/-/g,'');
+      const en = document.getElementById('nasaEnd').value.replace(/-/g,'');
+      url = `https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${s}&end=${en}&format=JSON&time-standard=UTC`;
+    } else if (App.timestep === 'daily') {
+      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'AG';
+      const s = document.getElementById('nasaStart').value.replace(/-/g,'');
+      const en = document.getElementById('nasaEnd').value.replace(/-/g,'');
+      url = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${s}&end=${en}&format=JSON`;
+    } else {
+      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'AG';
+      const y = document.getElementById('nasaYear').value;
+      url = `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${y}&end=${y}&format=JSON`;
+    }
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.messages && json.messages.length) console.warn('NASA POWER messages:', json.messages);
+    const P = json.properties.parameter;
+    if (!P) throw new Error('Unexpected response shape (no properties.parameter)');
+
+    const newRecords = [];
+    if (App.timestep === 'hourly') {
+      const keys = Object.keys(P.T2M || {}).sort();
+      keys.forEach(k => {
+        const yr = +k.slice(0,4), mo = +k.slice(4,6), da = +k.slice(6,8), hr = +k.slice(8,10);
+        const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+        const T = P.T2M[k], RH = P.RH2M[k], U = P.WS2M[k], Rs = P.ALLSKY_SFC_SW_DWN[k];
+        if ([T,RH,U,Rs].some(v => v === -999 || v === undefined)) return;
+        newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: U, Rs });
+      });
+      App.site.utcOffset = 0; document.getElementById('utcOffset').value = 0;
+      status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' hourly records (UTC). UTC offset set to 0 for solar-geometry consistency with these records.</div>';
+    } else if (App.timestep === 'daily') {
+      const keys = Object.keys(P.T2M_MAX || {}).sort();
+      keys.forEach(k => {
+        const yr = +k.slice(0,4), mo = +k.slice(4,6), da = +k.slice(6,8);
+        const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+        // NASA POWER's daily/monthly ALLSKY_SFC_SW_DWN is already in MJ/m^2/day (not kWh/m^2/day
+        // as in some older API versions/docs) -- no unit conversion needed here. An earlier
+        // `* 3.6` kWh->MJ conversion silently tripled Rs, producing wildly overestimated ETo
+        // (e.g. 25.65 mm/day instead of ~10.16 mm/day for a real hot Davis, CA summer day).
+        const Tmax = P.T2M_MAX[k], Tmin = P.T2M_MIN[k], RH = P.RH2M[k], U = P.WS2M[k], Rs = P.ALLSKY_SFC_SW_DWN[k];
+        if ([Tmax,Tmin,RH,U,Rs].some(v => v === -999 || v === undefined)) return;
+        newRecords.push({ date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs });
+      });
+      status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' daily records.</div>';
+    } else {
+      for (let m = 1; m <= 12; m++) {
+        const k = String(document.getElementById('nasaYear').value) + String(m).padStart(2,'0');
+        if (!(k in (P.T2M_MAX || {}))) continue;
+        const Tmax = P.T2M_MAX[k], Tmin = P.T2M_MIN[k], RH = P.RH2M[k], U = P.WS2M[k], Rs = P.ALLSKY_SFC_SW_DWN[k];
+        if ([Tmax,Tmin,RH,U,Rs].some(v => v === -999 || v === undefined)) continue;
+        const y = +document.getElementById('nasaYear').value;
+        const dim = daysInMonth(y, m);
+        const midDoy = dateToDOY(`${y}-${String(m).padStart(2,'0')}-15`);
+        newRecords.push({ year: y, month: m, J: midDoy, Tmax, Tmin, RH, u2: U, Rs, daysInMonth: dim });
+      }
+      status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' monthly records.</div>';
+    }
+    App.data = newRecords; App.dataPage = 0;
+    renderDataTable();
+  } catch (err) {
+    status.innerHTML = '<div class="tag-err">NASA POWER request failed: ' + err.message + '. This call reaches an external server (power.larc.nasa.gov) and only works when this page is open directly in a browser with network access &mdash; it will not work inside a sandboxed preview.</div>';
+  }
+}
+
+// ---- Open-Meteo (hourly) ----
+// NASA POWER's hourly ALLSKY_SFC_SW_DWN has a much longer processing latency than its
+// daily/monthly product and is often -999 (missing) for recent dates. Open-Meteo's
+// historical archive has essentially no lag and is genuinely hourly, so it's the
+// hourly source here; NASA POWER stays the daily/monthly source (both correct there).
+document.getElementById('omStart').value = todayISO(-7);
+document.getElementById('omEnd').value = todayISO(-1);
+document.getElementById('btnOmFetch').addEventListener('click', fetchOpenMeteo);
+async function fetchOpenMeteo() {
+  const status = document.getElementById('omStatus');
+  status.innerHTML = '<div class="tag-warn">Fetching from Open-Meteo&hellip;</div>';
+  const { lat, lon } = App.site;
+  try {
+    const s = document.getElementById('omStart').value;
+    const en = document.getElementById('omEnd').value;
+    const params = 'temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation';
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${s}&end_date=${en}&hourly=${params}&wind_speed_unit=ms&timezone=UTC`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.reason || 'API error');
+    const H = json.hourly;
+    if (!H || !H.time) throw new Error('Unexpected response shape (no hourly.time)');
+
+    const newRecords = [];
+    H.time.forEach((t, i) => {
+      const T = H.temperature_2m[i], RH = H.relative_humidity_2m[i], U10 = H.wind_speed_10m[i], Rs = H.shortwave_radiation[i];
+      if ([T,RH,U10,Rs].some(v => v === null || v === undefined)) return;
+      const dateStr = t.slice(0,10);
+      const hr = +t.slice(11,13);
+      // Open-Meteo's historical archive only has wind at 10m -- convert to the standard
+      // 2m reference height (FAO-56 Eq.47 log-wind-profile) rather than using it raw.
+      const u2 = PM.windSpeedToHeight(U10, 10, 2);
+      newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: u2, Rs });
+    });
+    App.site.utcOffset = 0; document.getElementById('utcOffset').value = 0;
+    App.data = newRecords; App.dataPage = 0;
+    renderDataTable();
+    status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' hourly records (UTC; wind converted from 10m to 2m). UTC offset set to 0 for solar-geometry consistency with these records.</div>';
+  } catch (err) {
+    status.innerHTML = '<div class="tag-err">Open-Meteo request failed: ' + err.message + '. This call reaches an external server (archive-api.open-meteo.com) and only works when this page is open directly in a browser with network access &mdash; it will not work inside a sandboxed preview.</div>';
+  }
+}
+
+// ---- Excel / CSV import ----
+const FIELD_ALIASES = {
+  date: ['date'], year: ['year'], doy: ['doy','dayofyear','julian','j'],
+  hour: ['hour','time','hr','t.hour'],
+  T: ['t','temp','temperature','tmean','tavg','t2m'],
+  Tmax: ['tmax','tmaxc','maxtemp','t2m_max'], Tmin: ['tmin','tminc','mintemp','t2m_min'],
+  RH: ['rh','relativehumidity','rhmean','rh2m'], RHmax:['rhmax'], RHmin:['rhmin'],
+  U: ['u','ws','wind','windspeed','u2','u10','ws2m'],
+  Rs: ['rs','solar','radiation','solarradiation','allsky_sfc_sw_dwn','rspot','rs measured'],
+};
+function guessColumn(headerRow, aliases) {
+  const norm = h => String(h||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const normed = headerRow.map(norm);
+  for (const a of aliases) { const idx = normed.indexOf(a.replace(/[^a-z0-9]/g,'')); if (idx>=0) return idx; }
+  return -1;
+}
+document.getElementById('excelFile').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+      const headerRow = (rows[0] || []).map(h => String(h==null?'':h).trim());
+      App._excelRaw = { headerRow, rows: rows.slice(1) };
+      buildMappingUI(headerRow);
+    } catch (err) {
+      alert('Could not read file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+const MAPPING_FIELDS_BY_STEP = {
+  hourly: ['date','hour','T','RH','U','Rs'],
+  daily:  ['date','Tmax','Tmin','RH','U','Rs'],
+  monthly:['date','Tmax','Tmin','RH','U','Rs'],
+};
+function buildMappingUI(headerRow) {
+  const step = App.timestep;
+  const fields = MAPPING_FIELDS_BY_STEP[step];
+  const container = document.getElementById('mappingFields');
+  container.innerHTML = '';
+  fields.forEach(f => {
+    const guessIdx = guessColumn(headerRow, FIELD_ALIASES[f] || [f.toLowerCase()]);
+    const wrap = document.createElement('div'); wrap.className = 'field';
+    const lbl = document.createElement('label'); lbl.textContent = f;
+    const sel = document.createElement('select'); sel.className = 'mapping'; sel.dataset.field = f;
+    sel.innerHTML = '<option value="-1">&mdash; none &mdash;</option>' + headerRow.map((h,i)=>`<option value="${i}">${h||('col '+(i+1))}</option>`).join('');
+    sel.value = guessIdx;
+    wrap.appendChild(lbl); wrap.appendChild(sel);
+    container.appendChild(wrap);
+  });
+  document.getElementById('excelMapping').classList.remove('hidden');
+}
+document.getElementById('btnApplyMapping').addEventListener('click', () => {
+  const { headerRow, rows } = App._excelRaw;
+  const map = {};
+  document.querySelectorAll('#mappingFields select').forEach(sel => map[sel.dataset.field] = +sel.value);
+  const step = App.timestep;
+  const newRecords = [];
+  rows.forEach(r => {
+    if (r == null || r.every(c => c===null)) return;
+    const get = f => (map[f] >=0 ? r[map[f]] : null);
+    let dateVal = get('date');
+    let dateStr = null;
+    if (dateVal instanceof Date) dateStr = dateVal.toISOString().slice(0,10);
+    else if (typeof dateVal === 'string' && dateVal.length >= 8) dateStr = new Date(dateVal).toISOString().slice(0,10);
+    if (step === 'hourly') {
+      const T = CONV.temp.toSI(+get('T'), App.units);
+      const RH = +get('RH');
+      const U = CONV.wind.toSI(+get('U'), App.units);
+      const Rs = CONV.radH.toSI(+get('Rs'), App.units);
+      const hour = +get('hour');
+      if (dateStr==null || isNaN(T) || isNaN(hour)) return;
+      newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour, T, RH, u: U, Rs });
+    } else {
+      const Tmax = CONV.temp.toSI(+get('Tmax'), App.units);
+      const Tmin = CONV.temp.toSI(+get('Tmin'), App.units);
+      const RH = +get('RH');
+      const U = CONV.wind.toSI(+get('U'), App.units);
+      const Rs = CONV.radD.toSI(+get('Rs'), App.units);
+      if (dateStr==null || isNaN(Tmax)) return;
+      const d = new Date(dateStr + 'T00:00:00Z');
+      const rec = { date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs };
+      if (step === 'monthly') { rec.year = d.getUTCFullYear(); rec.month = d.getUTCMonth()+1; rec.daysInMonth = daysInMonth(rec.year, rec.month); }
+      newRecords.push(rec);
+    }
+  });
+  App.data = newRecords; App.dataPage = 0;
+  renderDataTable();
+  document.getElementById('excelMapping').classList.add('hidden');
+  document.getElementById('excelFile').value = '';
+});
+
+// ---- Manual entry ----
+document.getElementById('btnAddRow').addEventListener('click', () => {
+  const step = App.timestep;
+  const d = new Date(); const dateStr = d.toISOString().slice(0,10);
+  if (step === 'hourly') App.data.push({ date: dateStr, J: dateToDOY(dateStr), hour: 12, T: 20, RH: 50, u: 2, Rs: 500 });
+  else if (step === 'daily') App.data.push({ date: dateStr, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20 });
+  else App.data.push({ year: d.getFullYear(), month: d.getMonth()+1, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(d.getFullYear(), d.getMonth()+1) });
+  App.dataPage = Math.floor((App.data.length-1) / App.pageSize);
+  renderDataTable();
+});
+document.getElementById('btnAddYear').addEventListener('click', () => {
+  const y = new Date().getFullYear();
+  for (let m = 1; m <= 12; m++) {
+    App.data.push({ year: y, month: m, J: dateToDOY(`${y}-${String(m).padStart(2,'0')}-15`), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(y, m) });
+  }
+  renderDataTable();
+});
+document.getElementById('btnClearData').addEventListener('click', () => {
+  if (!confirm('Clear all loaded weather data?')) return;
+  App.data = []; App.results = []; App.dataPage = 0;
+  renderDataTable(); renderResults();
+});
+
+// ---- Data table rendering ----
+const COLUMNS_BY_STEP = {
+  hourly:  [ {k:'date',l:'Date',kind:'none',editable:false}, {k:'hour',l:'Hour',kind:'none',editable:true},
+             {k:'T',l:'T',kind:'temp',editable:true}, {k:'RH',l:'RH (%)',kind:'none',editable:true},
+             {k:'u',l:'Wind',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radH',editable:true} ],
+  daily:   [ {k:'date',l:'Date',kind:'none',editable:false}, {k:'Tmax',l:'Tmax',kind:'temp',editable:true},
+             {k:'Tmin',l:'Tmin',kind:'temp',editable:true}, {k:'RH',l:'RH (%)',kind:'none',editable:true},
+             {k:'u2',l:'Wind (2m)',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radD',editable:true} ],
+  monthly: [ {k:'year',l:'Year',kind:'none',editable:true}, {k:'month',l:'Month',kind:'none',editable:true},
+             {k:'Tmax',l:'Tmax',kind:'temp',editable:true}, {k:'Tmin',l:'Tmin',kind:'temp',editable:true},
+             {k:'RH',l:'RH (%)',kind:'none',editable:true}, {k:'u2',l:'Wind (2m)',kind:'wind',editable:true},
+             {k:'Rs',l:'Rs',kind:'radD',editable:true} ],
+};
+function renderDataTable() {
+  const cols = COLUMNS_BY_STEP[App.timestep];
+  const thead = document.querySelector('#dataTable thead');
+  const tbody = document.querySelector('#dataTable tbody');
+  thead.innerHTML = '<tr>' + cols.map(c => `<th>${c.l}${c.kind!=='none'?` (${CONV[c.kind].unit[App.units]})`:''}</th>`).join('') + '</tr>';
+  const total = App.data.length;
+  document.getElementById('rowCountPill').textContent = total + ' row' + (total===1?'':'s');
+  const pageCount = Math.max(1, Math.ceil(total / App.pageSize));
+  App.dataPage = Math.min(App.dataPage, pageCount-1);
+  const startIdx = App.dataPage * App.pageSize;
+  const pageRows = App.data.slice(startIdx, startIdx + App.pageSize);
+  tbody.innerHTML = '';
+  pageRows.forEach((rec, i) => {
+    const idx = startIdx + i;
+    const tr = document.createElement('tr');
+    cols.forEach(c => {
+      const td = document.createElement('td');
+      const val = rec[c.k];
+      if (!c.editable) { td.textContent = val; }
+      else {
+        const disp = c.kind==='none' ? val : Math.round(CONV[c.kind].toDisp(val, App.units)*100)/100;
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.step = 'any'; inp.value = disp;
+        inp.addEventListener('change', () => {
+          const raw = parseFloat(inp.value);
+          App.data[idx][c.k] = c.kind==='none' ? raw : CONV[c.kind].toSI(raw, App.units);
+          if (App.timestep==='monthly' && (c.k==='year'||c.k==='month')) {
+            const r = App.data[idx];
+            r.daysInMonth = daysInMonth(r.year, r.month);
+            r.J = dateToDOY(`${r.year}-${String(r.month).padStart(2,'0')}-15`);
+          }
+        });
+        td.appendChild(inp);
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  const pager = document.getElementById('dataPager');
+  pager.classList.toggle('hidden', pageCount <= 1);
+  document.getElementById('pagerLabel').textContent = `Page ${App.dataPage+1} of ${pageCount}`;
+}
+document.getElementById('pagerPrev').addEventListener('click', () => { if (App.dataPage>0) { App.dataPage--; renderDataTable(); } });
+document.getElementById('pagerNext').addEventListener('click', () => { App.dataPage++; renderDataTable(); });
+
+// ---- Compute ----
+document.getElementById('btnCompute').addEventListener('click', computeAll);
+function computeAll() {
+  const status = document.getElementById('computeStatus');
+  if (!App.data.length) { status.innerHTML = '<div class="tag-warn">No data loaded.</div>'; return; }
+  const site = App.site;
+  const results = [];
+  if (App.timestep === 'hourly') {
+    const sorted = App.data.slice().sort((a,b) => (a.date+String(a.hour).padStart(5,'0')).localeCompare(b.date+String(b.hour).padStart(5,'0')));
+    const prevRatio = { v: 0.5 };
+    sorted.forEach(rec => { const out = TS.hourly(site, rec, prevRatio); results.push(Object.assign({}, rec, out)); });
+  } else if (App.timestep === 'daily') {
+    App.data.forEach(rec => { const out = TS.daily(site, rec); results.push(Object.assign({}, rec, out)); });
+  } else {
+    const sorted = App.data.slice().sort((a,b)=> (a.year*12+a.month) - (b.year*12+b.month));
+    sorted.forEach((rec,i) => {
+      const withNeighbors = Object.assign({}, rec, {
+        TmeanPrev: i>0 ? (sorted[i-1].Tmax+sorted[i-1].Tmin)/2 : undefined,
+        TmeanNext: i<sorted.length-1 ? (sorted[i+1].Tmax+sorted[i+1].Tmin)/2 : undefined,
+      });
+      const out = TS.monthly(site, withNeighbors);
+      results.push(Object.assign({}, withNeighbors, out));
+    });
+  }
+  App.results = results;
+  status.innerHTML = '<div class="tag-ok">Computed ET&#8320; for ' + results.length + ' record(s).</div>';
+  renderResults();
+  populateSensRecordSelect();
+}
+
+// =============================================================== RESULTS
+function renderResults() {
+  const results = App.results;
+  const statCards = document.getElementById('statCards');
+  if (!results.length) { statCards.innerHTML = '<div class="note">No results yet &mdash; load data and click Compute in the Weather Data tab.</div>'; renderResultsTable(); renderResultsChart(); return; }
+  const etoVals = results.map(r => r.ETo);
+  const total = etoVals.reduce((a,b)=>a+b,0);
+  const mean = total/etoVals.length;
+  const peak = Math.max(...etoVals);
+  const etoUnit = App.timestep==='hourly' ? 'mm/h' : (App.units==='SI'?'mm':'in');
+  const conv = App.units==='SI' ? (v=>v) : (v=>v/25.4);
+  const fmt = v => (Math.round(conv(v)*1000)/1000);
+  statCards.innerHTML = `
+    <div class="statcard"><div class="val">${fmt(total)}</div><div class="lbl">Total ET&#8320; (${App.units==='SI'?'mm':'in'})</div></div>
+    <div class="statcard"><div class="val">${fmt(mean)}</div><div class="lbl">Mean per record (${App.units==='SI'?'mm':'in'})</div></div>
+    <div class="statcard"><div class="val">${fmt(peak)}</div><div class="lbl">Peak (${App.units==='SI'?'mm':'in'})</div></div>
+    <div class="statcard"><div class="val">${results.length}</div><div class="lbl">Records</div></div>`;
+  renderResultsTable();
+  renderResultsChart();
+}
+function labelFor(r) {
+  if (App.timestep === 'hourly') return r.date + ' h' + r.hour;
+  if (App.timestep === 'daily') return r.date;
+  return r.year + '-' + String(r.month).padStart(2,'0');
+}
+function renderResultsTable() {
+  const thead = document.querySelector('#resultsTable thead'), tbody = document.querySelector('#resultsTable tbody');
+  const etoLabel = 'ET₀ (' + (App.units==='SI' ? (App.timestep==='hourly'?'mm/h':'mm') : (App.timestep==='hourly'?'in/h':'in')) + ')';
+  thead.innerHTML = `<tr><th>Record</th><th>${etoLabel}</th><th>Rn (${App.units==='SI'?'MJ/m²':'Btu/ft²'})</th><th>r<sub>a</sub> (s/m)</th><th>r<sub>c</sub> (s/m)</th><th>VPD (kPa)</th></tr>`;
+  tbody.innerHTML = App.results.map(r => {
+    const etoDisp = App.units==='SI' ? r.ETo : r.ETo/25.4;
+    const rnDisp = App.units==='SI' ? r.Rn : r.Rn*88.055;
+    return `<tr><td>${labelFor(r)}</td><td>${etoDisp.toFixed(4)}</td><td>${rnDisp.toFixed(2)}</td><td>${r.ra.toFixed(1)}</td><td>${r.rc.toFixed(1)}</td><td>${r.VPD.toFixed(3)}</td></tr>`;
+  }).join('');
+}
+function renderResultsChart() {
+  const ctx = document.getElementById('resultsChart');
+  if (App.charts.resultsChart) App.charts.resultsChart.destroy();
+  if (!App.results.length) return;
+  const labels = App.results.map(labelFor);
+  const data = App.results.map(r => App.units==='SI' ? r.ETo : r.ETo/25.4);
+  App.charts.resultsChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'ET₀ (' + (App.units==='SI'?(App.timestep==='hourly'?'mm/h':'mm'):(App.timestep==='hourly'?'in/h':'in')) + ')', data, borderColor:'#002855', backgroundColor:'rgba(0,40,85,0.08)', fill:true, tension:0.15, pointRadius: App.results.length>80?0:2 }] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{ x:{ ticks:{ maxTicksLimit:12 } } } }
+  });
+}
+document.getElementById('btnExportCsv').addEventListener('click', () => {
+  if (!App.results.length) return;
+  const rows = [['record','ETo','Rn_MJm2','ra_sm','rc_sm','VPD_kPa']];
+  App.results.forEach(r => rows.push([labelFor(r), r.ETo, r.Rn, r.ra, r.rc, r.VPD]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'RefET-PM_results.csv'; a.click();
+});
+document.getElementById('btnExportXlsx').addEventListener('click', () => {
+  if (!App.results.length) return;
+  const rows = App.results.map(r => ({ record: labelFor(r), ETo_mm: r.ETo, Rn_MJm2: r.Rn, ra_sm: r.ra, rc_sm: r.rc, VPD_kPa: r.VPD }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Results');
+  XLSX.writeFile(wb, 'RefET-PM_results.xlsx');
+});
+
+// ============================================================ SENSITIVITY
+function populateSensRecordSelect() {
+  const sel = document.getElementById('sensRecordSelect');
+  sel.innerHTML = App.results.map((r,i) => `<option value="${i}">${labelFor(r)} &mdash; ET₀=${r.ETo.toFixed(3)} mm</option>`).join('');
+  App.sens.record = 0;
+  runSensitivity();
+}
+document.getElementById('sensRecordSelect').addEventListener('change', (e) => { App.sens.record = +e.target.value; runSensitivity(); });
+document.getElementById('sensScope').addEventListener('change', (e) => { App.sens.scope = e.target.value; runSensitivity(); });
+
+const sliderIds = ['sT','sRH','sWS','sRS','sRA','sRC'];
+const sliderLabelFmt = {
+  sT:  v => v.toFixed(1) + ' °C',
+  sRH: v => Math.round(v) + ' pts',
+  sWS: v => Math.round(v) + ' %',
+  sRS: v => Math.round(v) + ' %',
+  sRA: v => Math.round(v) + ' %',
+  sRC: v => Math.round(v) + ' %',
+};
+sliderIds.forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    document.getElementById('v'+id.slice(1)).textContent = sliderLabelFmt[id](parseFloat(document.getElementById(id).value));
+    runSensitivity();
+  });
+});
+document.getElementById('btnResetSliders').addEventListener('click', () => {
+  sliderIds.forEach(id => { document.getElementById(id).value = 0; document.getElementById('v'+id.slice(1)).textContent = sliderLabelFmt[id](0); });
+  runSensitivity();
+});
+function refreshSensUnits() { /* sliders are delta/percent based; no unit relabel needed */ }
+
+function perturbRecord(rec, deltas) {
+  const r = Object.assign({}, rec);
+  if (App.timestep === 'hourly') {
+    r.T = rec.T + deltas.T;
+    r.RH = PM.clamp(rec.RH + deltas.RH, 0, 100);
+    r.u = Math.max(0, rec.u * (1 + deltas.WS/100));
+    r.Rs = Math.max(0, rec.Rs * (1 + deltas.RS/100));
+  } else {
+    r.Tmax = rec.Tmax + deltas.T; r.Tmin = rec.Tmin + deltas.T;
+    r.RH = PM.clamp(rec.RH + deltas.RH, 0, 100);
+    r.u2 = Math.max(0, rec.u2 * (1 + deltas.WS/100));
+    r.Rs = Math.max(0, rec.Rs * (1 + deltas.RS/100));
+  }
+  return r;
+}
+function computeOne(rec, deltas, prevRatioRef) {
+  const ov = { raMult: 1 + deltas.RA/100, rcMult: 1 + deltas.RC/100 };
+  const pr = perturbRecord(rec, deltas);
+  if (App.timestep === 'hourly') return TS.hourly(App.site, pr, prevRatioRef || {v:0.5}, ov);
+  if (App.timestep === 'daily') return TS.daily(App.site, pr, ov);
+  return TS.monthly(App.site, Object.assign({}, pr, { TmeanPrev: rec.TmeanPrev, TmeanNext: rec.TmeanNext }), ov);
+}
+function currentDeltas() {
+  return {
+    T: parseFloat(document.getElementById('sT').value),
+    RH: parseFloat(document.getElementById('sRH').value),
+    WS: parseFloat(document.getElementById('sWS').value),
+    RS: parseFloat(document.getElementById('sRS').value),
+    RA: parseFloat(document.getElementById('sRA').value),
+    RC: parseFloat(document.getElementById('sRC').value),
+  };
+}
+const ZERO_DELTAS = { T:0, RH:0, WS:0, RS:0, RA:0, RC:0 };
+function runSensitivity() {
+  if (!App.results.length) return;
+  const idx = App.sens.record;
+  const rawRec = App.results[idx]; // has original inputs merged in
+  if (!rawRec) return;
+  // Recompute the baseline live against the CURRENT site/surface parameters
+  // (rather than trusting App.results, which goes stale the moment a surface
+  // preset or site parameter changes without the user re-clicking Compute).
+  const baseResult = computeOne(rawRec, ZERO_DELTAS);
+  document.getElementById('sensBaselineInfo').innerHTML = `<span class="pill">${labelFor(rawRec)}</span> T=${(rawRec.T!==undefined?rawRec.T:rawRec.Tmean).toFixed(1)}°C, r<sub>a</sub>=${baseResult.ra.toFixed(1)} s/m, r<sub>c</sub>=${baseResult.rc.toFixed(1)} s/m`;
+
+  const deltas = currentDeltas();
+  const newOut = computeOne(rawRec, deltas);
+  const etoConv = App.units==='SI' ? (v=>v) : (v=>v/25.4);
+  const unit = App.units==='SI' ? (App.timestep==='hourly'?'mm/h':'mm') : (App.timestep==='hourly'?'in/h':'in');
+  document.getElementById('sensBaseEto').textContent = etoConv(baseResult.ETo).toFixed(4) + ' ' + unit;
+  document.getElementById('sensNewEto').textContent = etoConv(newOut.ETo).toFixed(4) + ' ' + unit;
+  const pct = ((newOut.ETo - baseResult.ETo) / baseResult.ETo) * 100;
+  const deltaEl = document.getElementById('sensDeltaEto');
+  deltaEl.textContent = (pct>=0?'+':'') + pct.toFixed(2) + ' %';
+  deltaEl.style.color = pct >= 0 ? 'var(--good)' : 'var(--bad)';
+
+  // series overlay if scope = all
+  const wrap = document.getElementById('sensSeriesChartWrap');
+  if (App.sens.scope === 'all' && App.results.length > 1) {
+    wrap.classList.remove('hidden');
+    const prevRatio = { v: 0.5 }, prevRatioBase = { v: 0.5 };
+    const perturbed = App.results.map(r => computeOne(r, deltas, prevRatio).ETo);
+    const base = App.results.map(r => computeOne(r, ZERO_DELTAS, prevRatioBase).ETo);
+    const labels = App.results.map(labelFor);
+    const ctx = document.getElementById('sensSeriesChart');
+    if (App.charts.sensSeriesChart) App.charts.sensSeriesChart.destroy();
+    App.charts.sensSeriesChart = new Chart(ctx, {
+      type:'line',
+      data:{ labels, datasets:[
+        { label:'Baseline', data: base.map(etoConv), borderColor:'#7a8592', backgroundColor:'transparent', pointRadius:0, tension:.15 },
+        { label:'Perturbed', data: perturbed.map(etoConv), borderColor:'#c69214', backgroundColor:'rgba(198,146,20,0.12)', fill:true, pointRadius:0, tension:.15 },
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ ticks:{ maxTicksLimit:12 } } } }
+    });
+  } else {
+    wrap.classList.add('hidden');
+  }
+
+  renderTornado(rawRec, baseResult);
+}
+function renderTornado(rawRec, baseResult) {
+  const vars = [
+    { key:'T',  label:'Temperature ±2°C', d: { T: 2 } },
+    { key:'RH', label:'RH ±10 pts', d: { RH: 10 } },
+    { key:'WS', label:'Wind ±10%', d: { WS: 10 } },
+    { key:'RS', label:'Radiation ±10%', d: { RS: 10 } },
+    { key:'RA', label:'Aerodynamic resistance ±10%', d: { RA: 10 } },
+  ];
+  if (presetAllowsRc()) vars.push({ key:'RC', label:'Surface resistance ±10%', d: { RC: 10 } });
+  const zero = { T:0, RH:0, WS:0, RS:0, RA:0, RC:0 };
+  const results = vars.map(v => {
+    const plusD = Object.assign({}, zero, v.d);
+    const minusD = Object.assign({}, zero); Object.keys(v.d).forEach(k => minusD[k] = -v.d[k]);
+    const plus = computeOne(rawRec, plusD).ETo, minus = computeOne(rawRec, minusD).ETo;
+    return { label: v.label, plusPct: (plus-baseResult.ETo)/baseResult.ETo*100, minusPct: (minus-baseResult.ETo)/baseResult.ETo*100 };
+  });
+  const ctx = document.getElementById('tornadoChart');
+  if (App.charts.tornadoChart) App.charts.tornadoChart.destroy();
+  App.charts.tornadoChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: results.map(r=>r.label), datasets: [
+      { label:'+10%', data: results.map(r=>r.plusPct), backgroundColor:'#0a3d75' },
+      { label:'-10%', data: results.map(r=>r.minusPct), backgroundColor:'#c69214' },
+    ]},
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{ title:{ display:true, text:'% change in ET₀' } } } }
+  });
+}
+
+// --------------------------------------------------------------- init
+refreshUnitLabels();
+refreshSetupFields();
+document.getElementById('btnAddYear').classList.toggle('hidden', App.timestep !== 'monthly');
+updateNasaAvailability();
+updateSensControlsForPreset();
+renderDataTable();
+renderResults();
+})();
+
+</script>
+</body>
+</html>
