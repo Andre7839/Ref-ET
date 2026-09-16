@@ -18,11 +18,7 @@ header.top{background:var(--blue);color:#fff;padding:18px 28px;display:flex;alig
 header.top .brandmark{width:42px;height:42px;flex:0 0 auto;}
 header.top .titles{flex:1 1 auto;min-width:200px;}
 header.top h1{color:#fff;font-size:1.5rem;margin:0;}
-header.top .sub{color:#c9d6e8;font-size:.85rem;letter-spacing:.02em;}
 .controls-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-.compute-bar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.06);}
-.compute-bar .btn{padding:11px 26px;font-size:.95rem;}
-.compute-bar #computeStatus > div{margin-bottom:0;}
 .toggle-group{display:flex;background:rgba(255,255,255,.12);border-radius:8px;padding:3px;gap:2px;}
 .toggle-group button{border:none;background:transparent;color:#e4ebf5;padding:7px 14px;border-radius:6px;font-size:.85rem;cursor:pointer;font-weight:600;}
 .toggle-group button.active{background:#fff;color:var(--blue);}
@@ -91,7 +87,6 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
   </svg>
   <div class="titles">
     <h1>RefET-PM</h1>
-    <div class="sub">UCD Advanced Irrigation Lab</div>
   </div>
   <div class="controls-bar">
     <div class="toggle-group" id="unitToggle">
@@ -100,11 +95,6 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
     </div>
   </div>
 </header>
-
-<div class="compute-bar">
-  <button class="btn" id="btnCompute">Compute ET&#8320;</button>
-  <div id="computeStatus"></div>
-</div>
 
 <main>
   <nav class="tabs">
@@ -133,11 +123,10 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
         <div class="field"><label>Latitude (&deg;, + N)</label><input type="number" id="lat" value="38.5449" step="0.0001"></div>
         <div class="field"><label>Longitude (&deg;, + E)</label><input type="number" id="lon" value="-121.7405" step="0.0001"></div>
         <div class="field"><label>Elevation (<span class="u-elev">m</span>)</label><input type="number" id="elev" value="18" step="1"></div>
-        <div class="field"><label>UTC offset (h)</label><input type="number" id="utcOffset" value="-8" step="1"></div>
+        <div class="field"><label>UTC offset (h)</label><input type="number" id="utcOffset" value="-8" step="1" title="Used only for hourly solar-time geometry; auto-suggested from longitude."></div>
       </div>
-      <div id="map"></div>
+      <div id="map" title="Click to set latitude/longitude"></div>
       <div id="mapStatus" class="tag-warn hidden" style="margin-top:10px;"></div>
-      <div class="note">Click anywhere on the map to set latitude/longitude (works even if the map imagery itself fails to load). UTC offset is used only for hourly solar-time geometry (auto-suggested from longitude; edit if your data uses a different clock).</div>
     </div>
 
     <div class="card">
@@ -175,7 +164,6 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
           <option value="monthly">Monthly</option>
         </select>
       </div>
-      <div class="note">Sets which weather-data sources are available below and which form of the Penman-Monteith equation is used (hourly vs. daily/monthly). Switching this clears any loaded data.</div>
     </div>
 
     <div class="card">
@@ -186,17 +174,14 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
         <button class="btn secondary" id="showExcelPanel">Import Excel / CSV</button>
         <button class="btn secondary" id="showManualPanel">Enter manually</button>
       </div>
-      <div class="note" id="nasaHourlyNote">NASA POWER auto-fetch is available for Daily and Monthly timesteps &mdash; its hourly solar-radiation data has a much longer processing latency and is often unavailable for recent dates. For Hourly, use Open-Meteo (below), Excel/CSV import, or manual entry.</div>
-      <div class="note hidden" id="openMeteoDailyNote">Open-Meteo auto-fetch here is for the Hourly timestep. For Daily/Monthly, use NASA POWER above.</div>
 
       <div id="nasaPanel" class="hidden" style="margin-top:16px;">
         <div class="grid cols-3">
           <div class="field"><label>Start date</label><input type="date" id="nasaStart"></div>
           <div class="field" id="nasaEndWrap"><label>End date</label><input type="date" id="nasaEnd"></div>
           <div class="field" id="nasaYearWrap" class="hidden"><label>Year (monthly)</label><input type="number" id="nasaYear" value="2024"></div>
-          <div class="field"><label>&nbsp;</label><button class="btn" id="btnNasaFetch" style="width:100%;">Fetch from NASA POWER</button></div>
+          <div class="field"><label>&nbsp;</label><button class="btn" id="btnNasaFetch" style="width:100%;" title="Uses the NASA POWER point API at the coordinates set in Tab 1. Only works with browser network access.">Fetch from NASA POWER</button></div>
         </div>
-        <div class="note">Uses the NASA POWER point API (<code>power.larc.nasa.gov</code>) at the coordinates set in Tab&nbsp;1. Hourly requests are fetched in UTC and matched to the same clock internally, so results are unaffected by the UTC-offset field. Large hourly ranges (&gt; ~31 days) may take a while &mdash; this call reaches an external server, so it only works when this page is open in your own browser (not in a sandboxed preview).</div>
         <div id="nasaStatus"></div>
       </div>
 
@@ -204,20 +189,18 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
         <div class="grid cols-3">
           <div class="field"><label>Start date</label><input type="date" id="omStart"></div>
           <div class="field"><label>End date</label><input type="date" id="omEnd"></div>
-          <div class="field"><label>&nbsp;</label><button class="btn" id="btnOmFetch" style="width:100%;">Fetch from Open-Meteo</button></div>
+          <div class="field"><label>&nbsp;</label><button class="btn" id="btnOmFetch" style="width:100%;" title="Uses the Open-Meteo historical weather API at the coordinates set in Tab 1. Wind converted from 10m to 2m. Only works with browser network access.">Fetch from Open-Meteo</button></div>
         </div>
-        <div class="note">Uses the Open-Meteo historical weather API (<code>archive-api.open-meteo.com</code>) at the coordinates set in Tab&nbsp;1 &mdash; no API key required, and (unlike NASA POWER's hourly product) solar radiation is available with only a few days' delay. Wind is measured at 10&nbsp;m and converted to the standard 2&nbsp;m reference height (FAO-56 log-wind-profile). Fetched in UTC and matched to the same clock internally, so results are unaffected by the UTC-offset field. This call reaches an external server, so it only works when this page is open in your own browser (not in a sandboxed preview).</div>
         <div id="omStatus"></div>
       </div>
 
       <div id="excelPanel" class="hidden" style="margin-top:16px;">
-        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" title="Recognized headers (case-insensitive): Date, Year, DOY, Time/Hour, T/Temp/Tmax/Tmin, RH/RHmax/RHmin, U/WS/Wind, Rs/Solar/Radiation.">
         <div id="excelMapping" class="hidden" style="margin-top:14px;">
           <h4>Column mapping</h4>
           <div id="mappingFields" class="grid cols-4"></div>
           <button class="btn" id="btnApplyMapping" style="margin-top:10px;">Load data</button>
         </div>
-        <div class="note" style="margin-top:8px;">Reads the first worksheet. Recognized headers (case-insensitive) are auto-mapped: Date, Year, DOY, Time/Hour, T/Temp/Tmax/Tmin, RH/RHmax/RHmin, U/WS/Wind, Rs/Solar/Radiation.</div>
       </div>
 
       <div id="manualPanel" class="hidden" style="margin-top:16px;">
@@ -239,12 +222,17 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
       <div class="btn-row">
         <button class="btn secondary" id="btnClearData">Clear data</button>
       </div>
-      <div class="note">Use the <strong>Compute ET&#8320;</strong> button at the top of the page once your data is loaded.</div>
     </div>
   </section>
 
   <!-- ============ TAB 3: RESULTS ============ -->
   <section class="panel" id="panel-results">
+    <div class="card">
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn" id="btnCompute">Compute ET&#8320;</button>
+      </div>
+      <div id="computeStatus"></div>
+    </div>
     <div class="card">
       <h3>Summary</h3>
       <div class="statcards" id="statCards"></div>
@@ -309,10 +297,9 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
       </div>
       <div class="slider-row">
         <label>Surface resistance r<sub>c</sub></label>
-        <input type="range" id="sRC" min="-80" max="300" step="5" value="0">
+        <input type="range" id="sRC" min="-80" max="300" step="5" value="0" title="Disabled for the current surface preset (Open water) — a free water surface has no stomatal/canopy resistance for this formulation to vary.">
         <div class="valbox" id="vRC">0 %</div>
       </div>
-      <div class="note hidden" id="rcNote">r<sub>c</sub> is disabled for the current surface preset (Open water) &mdash; a free water surface has no stomatal/canopy resistance for this formulation to vary.</div>
       <button class="btn secondary" id="btnResetSliders">Reset all</button>
 
       <div class="statcards" style="margin-top:18px;">
@@ -325,7 +312,6 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
 
     <div class="card">
       <h3>Normalized sensitivity (elasticity)</h3>
-      <div class="note">Each variable perturbed independently around the baseline record &mdash; temperature by &plusmn;2&deg;C, relative humidity by &plusmn;10 percentage points, and wind, radiation, r<sub>a</sub> and r<sub>c</sub> by &plusmn;10% &mdash; while holding all others fixed. Bars show the resulting % change in ET&#8320;.</div>
       <div class="chart-wrap" style="height:280px;"><canvas id="tornadoChart"></canvas></div>
     </div>
   </section>
@@ -516,6 +502,7 @@ const CONV = {
   radH:  { toDisp:(v,u)=> u==='SI'? v : v*0.317,          toSI:(v,u)=> u==='SI'? v : v/0.317,         unit:{SI:'W/m²',IMP:'Btu/ft²/h'} },
   radD:  { toDisp:(v,u)=> u==='SI'? v : v*88.055,         toSI:(v,u)=> u==='SI'? v : v/88.055,        unit:{SI:'MJ/m²/day',IMP:'Btu/ft²/day'} },
   eto:   { toDisp:(v,u)=> u==='SI'? v : v/25.4,           toSI:(v,u)=> u==='SI'? v : v*25.4,          unit:{SI:'mm',IMP:'in'} },
+  precip:{ toDisp:(v,u)=> u==='SI'? v : v/25.4,           toSI:(v,u)=> u==='SI'? v : v*25.4,          unit:{SI:'mm',IMP:'in'} },
   none:  { toDisp:v=>v, toSI:v=>v, unit:{SI:'',IMP:''} },
 };
 
@@ -598,12 +585,10 @@ function updateNasaAvailability() {
   const nasaBtn = document.getElementById('showNasaPanel');
   nasaBtn.disabled = !nasaAvailable;
   nasaBtn.classList.toggle('secondary', !nasaAvailable);
-  document.getElementById('nasaHourlyNote').classList.toggle('hidden', nasaAvailable);
 
   const omBtn = document.getElementById('showOpenMeteoPanel');
   omBtn.disabled = !omAvailable;
   omBtn.classList.toggle('secondary', !omAvailable);
-  document.getElementById('openMeteoDailyNote').classList.toggle('hidden', omAvailable);
 
   // If the panel that's currently open just became unavailable for this timestep,
   // fall back to whichever online source (if any) is available, else manual entry.
@@ -684,7 +669,6 @@ function updateSensControlsForPreset() {
   rcInput.disabled = !allow;
   if (!allow) { rcInput.value = 0; document.getElementById('vRC').textContent = 'N/A'; }
   else { document.getElementById('vRC').textContent = sliderLabelFmt.sRC(parseFloat(rcInput.value)); }
-  document.getElementById('rcNote').classList.toggle('hidden', allow);
   if (App.results.length) runSensitivity();
 }
 
@@ -824,19 +808,22 @@ async function fetchNasaPower() {
   status.innerHTML = '<div class="tag-warn">Fetching from NASA POWER&hellip;</div>';
   const { lat, lon } = App.site;
   try {
+    // PRECTOTCORR (bias-corrected precipitation) is included alongside the core variables
+    // on every timestep -- it's purely supplementary (not used in the PM calc itself), so
+    // a missing/-999 value for it never drops the record, unlike T/RH/wind/radiation below.
     let url, community, params;
     if (App.timestep === 'hourly') {
-      params = 'T2M,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'RE';
+      params = 'T2M,RH2M,WS2M,ALLSKY_SFC_SW_DWN,PRECTOTCORR'; community = 'RE';
       const s = document.getElementById('nasaStart').value.replace(/-/g,'');
       const en = document.getElementById('nasaEnd').value.replace(/-/g,'');
       url = `https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${s}&end=${en}&format=JSON&time-standard=UTC`;
     } else if (App.timestep === 'daily') {
-      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'AG';
+      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN,PRECTOTCORR'; community = 'AG';
       const s = document.getElementById('nasaStart').value.replace(/-/g,'');
       const en = document.getElementById('nasaEnd').value.replace(/-/g,'');
       url = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${s}&end=${en}&format=JSON`;
     } else {
-      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN'; community = 'AG';
+      params = 'T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN,PRECTOTCORR'; community = 'AG';
       const y = document.getElementById('nasaYear').value;
       url = `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=${params}&community=${community}&longitude=${lon}&latitude=${lat}&start=${y}&end=${y}&format=JSON`;
     }
@@ -855,7 +842,10 @@ async function fetchNasaPower() {
         const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
         const T = P.T2M[k], RH = P.RH2M[k], U = P.WS2M[k], Rs = P.ALLSKY_SFC_SW_DWN[k];
         if ([T,RH,U,Rs].some(v => v === -999 || v === undefined)) return;
-        newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: U, Rs });
+        const rec = { date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: U, Rs };
+        const precip = P.PRECTOTCORR ? P.PRECTOTCORR[k] : undefined;
+        if (precip !== undefined && precip !== -999) rec.precip = precip; // mm for that hour
+        newRecords.push(rec);
       });
       App.site.utcOffset = 0; document.getElementById('utcOffset').value = 0;
       status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' hourly records (UTC). UTC offset set to 0 for solar-geometry consistency with these records.</div>';
@@ -870,7 +860,10 @@ async function fetchNasaPower() {
         // (e.g. 25.65 mm/day instead of ~10.16 mm/day for a real hot Davis, CA summer day).
         const Tmax = P.T2M_MAX[k], Tmin = P.T2M_MIN[k], RH = P.RH2M[k], U = P.WS2M[k], Rs = P.ALLSKY_SFC_SW_DWN[k];
         if ([Tmax,Tmin,RH,U,Rs].some(v => v === -999 || v === undefined)) return;
-        newRecords.push({ date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs });
+        const rec = { date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs };
+        const precip = P.PRECTOTCORR ? P.PRECTOTCORR[k] : undefined;
+        if (precip !== undefined && precip !== -999) rec.precip = precip; // mm/day
+        newRecords.push(rec);
       });
       status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' daily records.</div>';
     } else {
@@ -882,7 +875,13 @@ async function fetchNasaPower() {
         const y = +document.getElementById('nasaYear').value;
         const dim = daysInMonth(y, m);
         const midDoy = dateToDOY(`${y}-${String(m).padStart(2,'0')}-15`);
-        newRecords.push({ year: y, month: m, J: midDoy, Tmax, Tmin, RH, u2: U, Rs, daysInMonth: dim });
+        const rec = { year: y, month: m, J: midDoy, Tmax, Tmin, RH, u2: U, Rs, daysInMonth: dim };
+        const precipRate = P.PRECTOTCORR ? P.PRECTOTCORR[k] : undefined;
+        // NASA POWER's monthly PRECTOTCORR is a mm/day average for the month (same
+        // convention as the other monthly variables here) -- convert to a monthly total,
+        // since that's what's actually useful for an irrigation-scheduling water balance.
+        if (precipRate !== undefined && precipRate !== -999) rec.precip = precipRate * dim;
+        newRecords.push(rec);
       }
       status.innerHTML = '<div class="tag-ok">Loaded ' + newRecords.length + ' monthly records.</div>';
     }
@@ -908,7 +907,7 @@ async function fetchOpenMeteo() {
   try {
     const s = document.getElementById('omStart').value;
     const en = document.getElementById('omEnd').value;
-    const params = 'temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation';
+    const params = 'temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation,precipitation';
     const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${s}&end_date=${en}&hourly=${params}&wind_speed_unit=ms&timezone=UTC`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -926,7 +925,10 @@ async function fetchOpenMeteo() {
       // Open-Meteo's historical archive only has wind at 10m -- convert to the standard
       // 2m reference height (FAO-56 Eq.47 log-wind-profile) rather than using it raw.
       const u2 = PM.windSpeedToHeight(U10, 10, 2);
-      newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: u2, Rs });
+      const rec = { date: dateStr, J: dateToDOY(dateStr), hour: hr + 0.5, T, RH, u: u2, Rs };
+      const precip = H.precipitation ? H.precipitation[i] : undefined;
+      if (precip !== undefined && precip !== null) rec.precip = precip; // mm for that hour
+      newRecords.push(rec);
     });
     App.site.utcOffset = 0; document.getElementById('utcOffset').value = 0;
     App.data = newRecords; App.dataPage = 0;
@@ -946,6 +948,7 @@ const FIELD_ALIASES = {
   RH: ['rh','relativehumidity','rhmean','rh2m'], RHmax:['rhmax'], RHmin:['rhmin'],
   U: ['u','ws','wind','windspeed','u2','u10','ws2m'],
   Rs: ['rs','solar','radiation','solarradiation','allsky_sfc_sw_dwn','rspot','rs measured'],
+  precip: ['precip','precipitation','rain','rainfall','ppt','prectot','prectotcorr'],
 };
 function guessColumn(headerRow, aliases) {
   const norm = h => String(h||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -971,9 +974,9 @@ document.getElementById('excelFile').addEventListener('change', (e) => {
   reader.readAsArrayBuffer(file);
 });
 const MAPPING_FIELDS_BY_STEP = {
-  hourly: ['date','hour','T','RH','U','Rs'],
-  daily:  ['date','Tmax','Tmin','RH','U','Rs'],
-  monthly:['date','Tmax','Tmin','RH','U','Rs'],
+  hourly: ['date','hour','T','RH','U','Rs','precip'],
+  daily:  ['date','Tmax','Tmin','RH','U','Rs','precip'],
+  monthly:['date','Tmax','Tmin','RH','U','Rs','precip'],
 };
 function buildMappingUI(headerRow) {
   const step = App.timestep;
@@ -1005,6 +1008,10 @@ document.getElementById('btnApplyMapping').addEventListener('click', () => {
     let dateStr = null;
     if (dateVal instanceof Date) dateStr = dateVal.toISOString().slice(0,10);
     else if (typeof dateVal === 'string' && dateVal.length >= 8) dateStr = new Date(dateVal).toISOString().slice(0,10);
+    // Precip is optional/supplementary (not used in the PM calc) -- default to 0 when the
+    // column isn't mapped or the cell is blank, same as RH/wind above, rather than skipping
+    // the record over it.
+    const precip = CONV.precip.toSI(+get('precip'), App.units);
     if (step === 'hourly') {
       const T = CONV.temp.toSI(+get('T'), App.units);
       const RH = +get('RH');
@@ -1012,7 +1019,7 @@ document.getElementById('btnApplyMapping').addEventListener('click', () => {
       const Rs = CONV.radH.toSI(+get('Rs'), App.units);
       const hour = +get('hour');
       if (dateStr==null || isNaN(T) || isNaN(hour)) return;
-      newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour, T, RH, u: U, Rs });
+      newRecords.push({ date: dateStr, J: dateToDOY(dateStr), hour, T, RH, u: U, Rs, precip: isNaN(precip)?0:precip });
     } else {
       const Tmax = CONV.temp.toSI(+get('Tmax'), App.units);
       const Tmin = CONV.temp.toSI(+get('Tmin'), App.units);
@@ -1021,7 +1028,7 @@ document.getElementById('btnApplyMapping').addEventListener('click', () => {
       const Rs = CONV.radD.toSI(+get('Rs'), App.units);
       if (dateStr==null || isNaN(Tmax)) return;
       const d = new Date(dateStr + 'T00:00:00Z');
-      const rec = { date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs };
+      const rec = { date: dateStr, J: dateToDOY(dateStr), Tmax, Tmin, RH, u2: U, Rs, precip: isNaN(precip)?0:precip };
       if (step === 'monthly') { rec.year = d.getUTCFullYear(); rec.month = d.getUTCMonth()+1; rec.daysInMonth = daysInMonth(rec.year, rec.month); }
       newRecords.push(rec);
     }
@@ -1036,16 +1043,16 @@ document.getElementById('btnApplyMapping').addEventListener('click', () => {
 document.getElementById('btnAddRow').addEventListener('click', () => {
   const step = App.timestep;
   const d = new Date(); const dateStr = d.toISOString().slice(0,10);
-  if (step === 'hourly') App.data.push({ date: dateStr, J: dateToDOY(dateStr), hour: 12, T: 20, RH: 50, u: 2, Rs: 500 });
-  else if (step === 'daily') App.data.push({ date: dateStr, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20 });
-  else App.data.push({ year: d.getFullYear(), month: d.getMonth()+1, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(d.getFullYear(), d.getMonth()+1) });
+  if (step === 'hourly') App.data.push({ date: dateStr, J: dateToDOY(dateStr), hour: 12, T: 20, RH: 50, u: 2, Rs: 500, precip: 0 });
+  else if (step === 'daily') App.data.push({ date: dateStr, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, precip: 0 });
+  else App.data.push({ year: d.getFullYear(), month: d.getMonth()+1, J: dateToDOY(dateStr), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(d.getFullYear(), d.getMonth()+1), precip: 0 });
   App.dataPage = Math.floor((App.data.length-1) / App.pageSize);
   renderDataTable();
 });
 document.getElementById('btnAddYear').addEventListener('click', () => {
   const y = new Date().getFullYear();
   for (let m = 1; m <= 12; m++) {
-    App.data.push({ year: y, month: m, J: dateToDOY(`${y}-${String(m).padStart(2,'0')}-15`), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(y, m) });
+    App.data.push({ year: y, month: m, J: dateToDOY(`${y}-${String(m).padStart(2,'0')}-15`), Tmax: 25, Tmin: 12, RH: 50, u2: 2, Rs: 20, daysInMonth: daysInMonth(y, m), precip: 0 });
   }
   renderDataTable();
 });
@@ -1059,20 +1066,23 @@ document.getElementById('btnClearData').addEventListener('click', () => {
 const COLUMNS_BY_STEP = {
   hourly:  [ {k:'date',l:'Date',kind:'none',editable:false}, {k:'hour',l:'Hour',kind:'none',editable:true},
              {k:'T',l:'T',kind:'temp',editable:true}, {k:'RH',l:'RH (%)',kind:'none',editable:true},
-             {k:'u',l:'Wind',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radH',editable:true} ],
+             {k:'u',l:'Wind',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radH',editable:true},
+             {k:'precip',l:'Precip',kind:'precip',editable:true} ],
   daily:   [ {k:'date',l:'Date',kind:'none',editable:false}, {k:'Tmax',l:'Tmax',kind:'temp',editable:true},
              {k:'Tmin',l:'Tmin',kind:'temp',editable:true}, {k:'RH',l:'RH (%)',kind:'none',editable:true},
-             {k:'u2',l:'Wind (2m)',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radD',editable:true} ],
+             {k:'u2',l:'Wind (2m)',kind:'wind',editable:true}, {k:'Rs',l:'Rs',kind:'radD',editable:true},
+             {k:'precip',l:'Precip',kind:'precip',editable:true} ],
   monthly: [ {k:'year',l:'Year',kind:'none',editable:true}, {k:'month',l:'Month',kind:'none',editable:true},
              {k:'Tmax',l:'Tmax',kind:'temp',editable:true}, {k:'Tmin',l:'Tmin',kind:'temp',editable:true},
              {k:'RH',l:'RH (%)',kind:'none',editable:true}, {k:'u2',l:'Wind (2m)',kind:'wind',editable:true},
-             {k:'Rs',l:'Rs',kind:'radD',editable:true} ],
+             {k:'Rs',l:'Rs',kind:'radD',editable:true}, {k:'precip',l:'Precip',kind:'precip',editable:true} ],
 };
 function renderDataTable() {
   const cols = COLUMNS_BY_STEP[App.timestep];
   const thead = document.querySelector('#dataTable thead');
   const tbody = document.querySelector('#dataTable tbody');
-  thead.innerHTML = '<tr>' + cols.map(c => `<th>${c.l}${c.kind!=='none'?` (${CONV[c.kind].unit[App.units]})`:''}</th>`).join('') + '</tr>';
+  const precipTitle = App.timestep==='monthly' ? 'Total precipitation for the month' : (App.timestep==='daily' ? 'Precipitation total for the day' : 'Precipitation total for the hour');
+  thead.innerHTML = '<tr>' + cols.map(c => `<th${c.k==='precip'?` title="${precipTitle}"`:''}>${c.l}${c.kind!=='none'?` (${CONV[c.kind].unit[App.units]})`:''}</th>`).join('') + '</tr>';
   const total = App.data.length;
   document.getElementById('rowCountPill').textContent = total + ' row' + (total===1?'':'s');
   const pageCount = Math.max(1, Math.ceil(total / App.pageSize));
@@ -1147,7 +1157,7 @@ function computeAll() {
 function renderResults() {
   const results = App.results;
   const statCards = document.getElementById('statCards');
-  if (!results.length) { statCards.innerHTML = '<div class="note">No results yet &mdash; load data and click Compute in the Weather Data tab.</div>'; renderResultsTable(); renderResultsChart(); return; }
+  if (!results.length) { statCards.innerHTML = '<div class="note">No results yet &mdash; click Compute ET&#8320; above.</div>'; renderResultsTable(); renderResultsChart(); return; }
   const etoVals = results.map(r => r.ETo);
   const total = etoVals.reduce((a,b)=>a+b,0);
   const mean = total/etoVals.length;
@@ -1171,11 +1181,16 @@ function labelFor(r) {
 function renderResultsTable() {
   const thead = document.querySelector('#resultsTable thead'), tbody = document.querySelector('#resultsTable tbody');
   const etoLabel = 'ET₀ (' + (App.units==='SI' ? (App.timestep==='hourly'?'mm/h':'mm') : (App.timestep==='hourly'?'in/h':'in')) + ')';
-  thead.innerHTML = `<tr><th>Record</th><th>${etoLabel}</th><th>Rn (${App.units==='SI'?'MJ/m²':'Btu/ft²'})</th><th>r<sub>a</sub> (s/m)</th><th>r<sub>c</sub> (s/m)</th><th>VPD (kPa)</th></tr>`;
+  // Precip is optional (only present when fetched from NASA POWER / Open-Meteo, or entered
+  // manually/via Excel) -- only show the column when at least one loaded record has it.
+  const hasPrecip = App.results.some(r => r.precip !== undefined);
+  const precipLabel = 'Precip (' + CONV.precip.unit[App.units] + ')';
+  thead.innerHTML = `<tr><th>Record</th><th>${etoLabel}</th><th>Rn (${App.units==='SI'?'MJ/m²':'Btu/ft²'})</th><th>r<sub>a</sub> (s/m)</th><th>r<sub>c</sub> (s/m)</th><th>VPD (kPa)</th>${hasPrecip?`<th>${precipLabel}</th>`:''}</tr>`;
   tbody.innerHTML = App.results.map(r => {
     const etoDisp = App.units==='SI' ? r.ETo : r.ETo/25.4;
     const rnDisp = App.units==='SI' ? r.Rn : r.Rn*88.055;
-    return `<tr><td>${labelFor(r)}</td><td>${etoDisp.toFixed(4)}</td><td>${rnDisp.toFixed(2)}</td><td>${r.ra.toFixed(1)}</td><td>${r.rc.toFixed(1)}</td><td>${r.VPD.toFixed(3)}</td></tr>`;
+    const precipCell = hasPrecip ? `<td>${r.precip!==undefined ? CONV.precip.toDisp(r.precip, App.units).toFixed(2) : '—'}</td>` : '';
+    return `<tr><td>${labelFor(r)}</td><td>${etoDisp.toFixed(4)}</td><td>${rnDisp.toFixed(2)}</td><td>${r.ra.toFixed(1)}</td><td>${r.rc.toFixed(1)}</td><td>${r.VPD.toFixed(3)}</td>${precipCell}</tr>`;
   }).join('');
 }
 function renderResultsChart() {
@@ -1184,23 +1199,58 @@ function renderResultsChart() {
   if (!App.results.length) return;
   const labels = App.results.map(labelFor);
   const data = App.results.map(r => App.units==='SI' ? r.ETo : r.ETo/25.4);
+  const etoUnit = App.units==='SI' ? (App.timestep==='hourly'?'mm/h':'mm') : (App.timestep==='hourly'?'in/h':'in');
+  const datasets = [{
+    label: 'ET₀ (' + etoUnit + ')', data, yAxisID: 'y', order: 1,
+    borderColor:'#002855', backgroundColor:'rgba(0,40,85,0.08)', fill:true, tension:0.15,
+    pointRadius: App.results.length>80?0:2,
+  }];
+
+  // Precip is optional -- only add the bar series, sharing the same 'y' axis as ET0 (both
+  // are water-depth quantities in the same unit), when at least one loaded record has it.
+  const hasPrecip = App.results.some(r => r.precip !== undefined);
+  if (hasPrecip) {
+    const precipUnit = CONV.precip.unit[App.units];
+    const precipData = App.results.map(r => r.precip !== undefined ? CONV.precip.toDisp(r.precip, App.units) : null);
+    datasets.push({
+      type: 'bar', label: 'Precip (' + precipUnit + ')', data: precipData, yAxisID: 'y', order: 2,
+      backgroundColor: 'rgba(10,120,200,0.5)', borderColor: 'rgba(10,120,200,0.9)', borderWidth: 1,
+      barPercentage: 0.6, categoryPercentage: 0.7,
+    });
+  }
+
   App.charts.resultsChart = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{ label: 'ET₀ (' + (App.units==='SI'?(App.timestep==='hourly'?'mm/h':'mm'):(App.timestep==='hourly'?'in/h':'in')) + ')', data, borderColor:'#002855', backgroundColor:'rgba(0,40,85,0.08)', fill:true, tension:0.15, pointRadius: App.results.length>80?0:2 }] },
-    options: { responsive:true, maintainAspectRatio:false, scales:{ x:{ ticks:{ maxTicksLimit:12 } } } }
+    data: { labels, datasets },
+    options: { responsive:true, maintainAspectRatio:false, scales:{
+      x: { ticks:{ maxTicksLimit:12 } },
+      y: { beginAtZero:true, title:{ display:true, text: (App.units==='SI'?'mm':'in') } },
+    } }
   });
 }
 document.getElementById('btnExportCsv').addEventListener('click', () => {
   if (!App.results.length) return;
-  const rows = [['record','ETo','Rn_MJm2','ra_sm','rc_sm','VPD_kPa']];
-  App.results.forEach(r => rows.push([labelFor(r), r.ETo, r.Rn, r.ra, r.rc, r.VPD]));
+  const hasPrecip = App.results.some(r => r.precip !== undefined);
+  const header = ['record','ETo','Rn_MJm2','ra_sm','rc_sm','VPD_kPa'];
+  if (hasPrecip) header.push('precip_mm');
+  const rows = [header];
+  App.results.forEach(r => {
+    const row = [labelFor(r), r.ETo, r.Rn, r.ra, r.rc, r.VPD];
+    if (hasPrecip) row.push(r.precip !== undefined ? r.precip : '');
+    rows.push(row);
+  });
   const csv = rows.map(r => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'RefET-PM_results.csv'; a.click();
 });
 document.getElementById('btnExportXlsx').addEventListener('click', () => {
   if (!App.results.length) return;
-  const rows = App.results.map(r => ({ record: labelFor(r), ETo_mm: r.ETo, Rn_MJm2: r.Rn, ra_sm: r.ra, rc_sm: r.rc, VPD_kPa: r.VPD }));
+  const hasPrecip = App.results.some(r => r.precip !== undefined);
+  const rows = App.results.map(r => {
+    const row = { record: labelFor(r), ETo_mm: r.ETo, Rn_MJm2: r.Rn, ra_sm: r.ra, rc_sm: r.rc, VPD_kPa: r.VPD };
+    if (hasPrecip) row.precip_mm = r.precip !== undefined ? r.precip : '';
+    return row;
+  });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Results');
   XLSX.writeFile(wb, 'RefET-PM_results.xlsx');
