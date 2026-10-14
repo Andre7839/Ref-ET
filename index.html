@@ -75,6 +75,31 @@ table.datatable input{border:none;background:transparent;width:100%;text-align:r
 select.mapping{font-size:.8rem;padding:4px 6px;}
 .two-col-tables{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media (max-width:900px){.two-col-tables{grid-template-columns:1fr;}}
+.btn-learn{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.4);padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.85rem;}
+.btn-learn:hover{background:rgba(255,255,255,.26);}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,15,25,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:18px;}
+.modal-box{background:#fff;border-radius:12px;max-width:880px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+.modal-header{background:var(--blue);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.modal-header h2{color:#fff;font-size:1.15rem;margin:0;}
+.modal-close{background:transparent;border:none;color:#fff;font-size:1.6rem;line-height:1;cursor:pointer;padding:0 4px;}
+.modal-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:14px 22px 0;border-bottom:1px solid var(--border);}
+.modal-tabs button{border:1px solid var(--border);border-bottom:none;background:#f6f7f9;color:var(--muted);padding:9px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:.88rem;font-weight:600;}
+.modal-tabs button.active{background:#fff;color:var(--blue);border-color:var(--border);}
+.modal-body{padding:22px 26px;overflow-y:auto;flex:1 1 auto;}
+.lpanel{display:none;}
+.lpanel.active{display:block;}
+.lpanel h3{margin-top:0;}
+.lpanel h4{color:var(--blue);margin:16px 0 6px;}
+.lpanel p,.lpanel li{font-size:.92rem;line-height:1.5;color:var(--text);}
+.lpanel ul{margin:6px 0 10px 20px;padding:0;}
+.quiz-q{margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.quiz-q:last-child{border-bottom:none;}
+.quiz-question{font-weight:700;margin-bottom:8px;color:var(--text);}
+.quiz-opt{display:block;font-size:.88rem;font-weight:400;color:var(--text);margin-bottom:6px;cursor:pointer;}
+.quiz-opt input{width:auto;margin-right:8px;}
+.quiz-feedback{margin-top:8px;font-size:.85rem;}
+.quiz-q.correct .quiz-question{color:var(--good);}
+.quiz-q.incorrect .quiz-question{color:var(--bad);}
 </style>
 </head>
 <body>
@@ -89,6 +114,7 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
     <h1>RefET-PM</h1>
   </div>
   <div class="controls-bar">
+    <button class="btn-learn" id="btnLearn">Learn</button>
     <div class="toggle-group" id="unitToggle">
       <button data-val="SI" class="active">SI</button>
       <button data-val="IMP">Imperial</button>
@@ -231,6 +257,12 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
       <div class="btn-row" style="margin-top:0;">
         <button class="btn" id="btnCompute">Compute ET&#8320;</button>
       </div>
+      <div class="field hidden" id="empiricalToggleWrap" style="margin-top:14px;margin-bottom:0;max-width:480px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text);margin-bottom:0;">
+          <input type="checkbox" id="chkEmpirical" style="width:auto;margin:0;">
+          Compare with empirical formulas (Hargreaves&#8209;Samani, Priestley&#8209;Taylor, Turc)
+        </label>
+      </div>
       <div id="computeStatus"></div>
     </div>
     <div class="card">
@@ -245,6 +277,12 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
         <button class="btn secondary" id="btnExportXlsx">Export Excel</button>
       </div>
       <div class="table-scroll"><table class="datatable" id="resultsTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card hidden" id="empiricalCard">
+      <h3>Empirical Formula Comparison</h3>
+      <div class="statcards" id="empiricalStatCards"></div>
+      <div class="chart-wrap"><canvas id="empiricalChart"></canvas></div>
+      <div class="chart-wrap" style="margin-top:22px;"><canvas id="empiricalScatterChart"></canvas></div>
     </div>
   </section>
 
@@ -316,6 +354,78 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
     </div>
   </section>
 </main>
+
+<div class="modal-overlay hidden" id="learnModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Learn: FAO&#8209;56 Penman&#8209;Monteith &amp; This Tool</h2>
+      <button class="modal-close" id="btnLearnClose" aria-label="Close">&times;</button>
+    </div>
+    <nav class="modal-tabs" id="learnTabs">
+      <button data-ltab="theory" class="active">The Science</button>
+      <button data-ltab="empirical">Empirical Methods</button>
+      <button data-ltab="usage">Using This Tool</button>
+      <button data-ltab="quiz">Quiz</button>
+    </nav>
+    <div class="modal-body">
+      <section class="lpanel active" id="lpanel-theory">
+        <h3>Reference evapotranspiration (ET&#8320;)</h3>
+        <p>ET&#8320; is the evapotranspiration rate from a hypothetical, well&#8209;watered reference surface, grown under the given weather conditions. It isolates the effect of climate from crop&#8209;specific effects, so that the water use of any particular crop can be found as <strong>ET<sub>c</sub> = K<sub>c</sub> &times; ET&#8320;</strong>, where K<sub>c</sub> is a crop coefficient.</p>
+        <p>FAO&#8209;56 defines the reference surface as a hypothetical clipped grass with a canopy height of 0.12&nbsp;m, a fixed bulk surface resistance of about 70&nbsp;s/m, and an albedo of 0.23 &mdash; this is exactly the default "FAO&#8209;56 reference grass" preset on the Location &amp; Surface tab.</p>
+        <h4>The Penman&#8209;Monteith combination equation</h4>
+        <p>Penman&#8209;Monteith combines two physical drivers of evaporation into one equation:</p>
+        <ul>
+          <li><strong>Energy balance term</strong> &mdash; driven by net radiation (R<sub>n</sub>) minus soil heat flux (G), weighted by &Delta; (the slope of the saturation vapor pressure curve) relative to &Delta;+&gamma;.</li>
+          <li><strong>Aerodynamic (mass transfer) term</strong> &mdash; driven by the vapor pressure deficit (VPD = e<sub>s</sub> &minus; e<sub>a</sub>) and wind speed, weighted by &gamma; relative to &Delta;+&gamma;.</li>
+        </ul>
+        <p>Two resistances control how fast heat and water vapor actually move:</p>
+        <ul>
+          <li><strong>r<sub>a</sub>, aerodynamic resistance</strong> &mdash; resistance to transport through the air above the canopy; falls as wind speed rises.</li>
+          <li><strong>r<sub>c</sub>, (bulk) surface resistance</strong> &mdash; resistance to water loss through the canopy/stomata; fixed for the reference surface, but can differ for day vs. night in this tool.</li>
+        </ul>
+        <p>This tool computes every term explicitly (R<sub>n</sub>, R<sub>s</sub>, R<sub>so</sub>, R<sub>a</sub>, e<sub>s</sub>, e<sub>a</sub>, &Delta;, &gamma;, r<sub>a</sub>, r<sub>c</sub>) rather than using the simplified "FAO&#8209;56 grass" shortcut constants, and validates against the FAO&#8209;56 Example&nbsp;17 worked problem.</p>
+        <h4>Why timestep matters</h4>
+        <p>Hourly, daily, and monthly calculations differ in some details: hourly runs track a changing cloudiness ratio and let r<sub>c</sub> switch between day and night values; daily and monthly runs use Tmax/Tmin&#8209;based humidity and radiation estimates and generally assume soil heat flux G&nbsp;&asymp;&nbsp;0 (daily) or a small month&#8209;to&#8209;month correction (monthly).</p>
+      </section>
+      <section class="lpanel" id="lpanel-empirical">
+        <h3>Why use a simpler (empirical) formula?</h3>
+        <p>Penman&#8209;Monteith needs temperature, humidity, wind speed, and solar radiation. When one of those is missing or unreliable &mdash; a common situation at many weather stations &mdash; a simpler formula calibrated on fewer inputs can still give a usable ET&#8320; estimate. This tool can compute three classic methods alongside PM, for daily and monthly timesteps, so you can see directly how well they agree with PM at your own site.</p>
+        <h4>Hargreaves&#8209;Samani (1985)</h4>
+        <p>ET&#8320; = 0.0023 &times; R<sub>a</sub> &times; (T<sub>mean</sub> + 17.8) &times; &radic;(T<sub>max</sub> &minus; T<sub>min</sub>)</p>
+        <p>Needs <strong>only Tmax, Tmin, and extraterrestrial radiation</strong> (which depends on latitude and date). Designed as a last&#8209;resort substitute for PM when solar radiation, humidity, and wind data aren't available.</p>
+        <h4>Priestley&#8209;Taylor (1972)</h4>
+        <p>ET&#8320; = &alpha; &times; [&Delta;/(&Delta;+&gamma;)] &times; (R<sub>n</sub> &minus; G) / &lambda;, with &alpha; &asymp; 1.26</p>
+        <p>Radiation&#8209;driven: it scales up the energy&#8209;only "equilibrium" evaporation rate by a constant factor and <strong>drops the aerodynamic (wind/VPD) term entirely</strong>. Works best in humid, well&#8209;watered climates where that term is small; tends to under&#8209;predict on windy, dry days.</p>
+        <h4>Turc (1961)</h4>
+        <p>ET&#8320; = 0.013 &times; [T<sub>mean</sub>/(T<sub>mean</sub>+15)] &times; (R<sub>s</sub> + 50), with a correction factor applied when relative humidity is below 50%</p>
+        <p>A simple temperature + radiation method, widely used in European agronomy and hydrology; includes a built&#8209;in correction for arid conditions.</p>
+        <h4>Using the comparison responsibly</h4>
+        <p>These formulas were each calibrated and validated on particular climates and are not universally accurate. Treat them as approximations, and use the "Compare with empirical formulas" option on the Results tab &mdash; with its bias, RMSE and R&sup2; statistics against PM &mdash; to judge how well each one performs for your specific site and season before relying on it operationally.</p>
+      </section>
+      <section class="lpanel" id="lpanel-usage">
+        <h3>Walking through the four tabs</h3>
+        <h4>1. Location &amp; Surface</h4>
+        <p>Set the site's location by searching a place name, clicking the map, dragging the pin, or typing latitude/longitude/elevation directly. Choose a surface preset (reference grass is the FAO&#8209;56 default) or enter custom albedo, canopy height, surface resistance, and measurement heights.</p>
+        <h4>2. Weather Data</h4>
+        <p>Pick a timestep &mdash; hourly, daily, or monthly &mdash; then load weather data from NASA POWER (daily/monthly) or Open&#8209;Meteo (hourly), import an Excel/CSV file, or type values in by hand. Rainfall can be loaded alongside the other variables when the source provides it.</p>
+        <h4>3. Results</h4>
+        <p>Click <strong>Compute ET&#8320;</strong> to run the calculation. The Summary card shows totals and a chart with ET&#8320; and rainfall on a shared axis; the table below lists every record and can be exported to CSV or Excel. Tick <strong>"Compare with empirical formulas"</strong> (daily/monthly only) to add Hargreaves&#8209;Samani, Priestley&#8209;Taylor and Turc columns, a time&#8209;series overlay chart, and a scatter plot against the 1:1 line with bias/RMSE/R&sup2; statistics.</p>
+        <h4>4. Sensitivity Analysis</h4>
+        <p>Pick a baseline record (or the whole series), then drag sliders for temperature, humidity, wind, radiation, r<sub>a</sub>, or r<sub>c</sub> to see how much ET&#8320; responds. The tornado chart ranks each input by its normalized sensitivity (elasticity), showing which inputs matter most for your conditions.</p>
+      </section>
+      <section class="lpanel" id="lpanel-quiz">
+        <h3>Quick quiz</h3>
+        <p class="note" style="margin-top:0;">Covers both the Penman&#8209;Monteith theory and how to use this tool. Pick an answer for each question, then check your score.</p>
+        <div id="quizContainer"></div>
+        <div class="btn-row">
+          <button class="btn" id="btnQuizCheck">Check answers</button>
+          <button class="btn secondary" id="btnQuizReset">Reset</button>
+        </div>
+        <div id="quizScore" class="note" style="margin-top:10px;font-weight:700;"></div>
+      </section>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -398,6 +508,43 @@ const PM = (function () {
   return M;
 })();
 
+// ============================================================ EMPIRICAL METHODS
+// Simpler reference-ET formulas offered alongside FAO-56 Penman-Monteith for
+// comparison (daily/monthly timesteps only -- these are classical climatological
+// methods, not meant for sub-daily steps). Each reuses intermediate quantities
+// (Ra, Rn, G, Delta, gamma, Tmean) already computed by TS.daily/TS.monthly for
+// the SAME record, so any difference from PM reflects the formulas themselves,
+// not an independently re-derived radiation or vapor-pressure term.
+const EMP = (function () {
+  const LAMBDA = 2.45; // MJ/kg, latent heat of vaporization
+  const E = {};
+  // Hargreaves & Samani (1985) -- temperature-only; needs just Tmax/Tmin/Tmean and
+  // extraterrestrial radiation Ra. FAO-56 recommends it where only temperature
+  // records are available.
+  E.hargreavesSamani = function (Tmean, Tmax, Tmin, Ra_MJ) {
+    const Ra_mm = 0.408 * Ra_MJ;
+    const dT = Math.max(0, Tmax - Tmin);
+    return 0.0023 * Ra_mm * (Tmean + 17.8) * Math.sqrt(dT);
+  };
+  // Priestley & Taylor (1972) -- radiation-driven; applies a constant 1.26
+  // multiplier to the equilibrium (energy-only) evaporation rate and omits the
+  // aerodynamic/VPD term, so it tends to under-predict on windy, dry days.
+  E.priestleyTaylor = function (Delta, gamma, Rn_MJ, G_MJ) {
+    const ALPHA = 1.26;
+    return Math.max(0, ALPHA * (Delta / (Delta + gamma)) * (Rn_MJ - G_MJ) / LAMBDA);
+  };
+  // Turc (1961) -- simplified temperature+radiation method; humid-climate form
+  // above RH=50%, with a dry-climate correction term below it.
+  E.turc = function (Tmean, Rs_MJ, RH) {
+    if (Tmean <= -15) return 0;
+    const Rs_cal = Rs_MJ * 23.884; // MJ/m2/day -> cal/cm2/day
+    let et = 0.013 * (Tmean / (Tmean + 15)) * (Rs_cal + 50);
+    if (RH !== undefined && RH < 50) et *= (1 + (50 - RH) / 70);
+    return Math.max(0, et);
+  };
+  return E;
+})();
+
 const TS = (function () {
   function applyOverride(ra, rc, ov) {
     if (!ov) return { ra, rc };
@@ -430,7 +577,10 @@ const TS = (function () {
     ({ ra, rc } = applyOverride(ra, rc, ov));
     const VPD = Math.max(0, es - ea);
     const LE = PM.latentHeatFlux(Delta, RnW, GW, gamma, rhoCp, VPD, ra, rc);
-    return { ETo: PM.leToEto(LE, seconds), Rn: Rn_MJ, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, G: G_MJ, Tmean, P };
+    const ETo_HS = EMP.hargreavesSamani(Tmean, rec.Tmax, rec.Tmin, solar.Ra);
+    const ETo_PT = EMP.priestleyTaylor(Delta, gamma, Rn_MJ, G_MJ);
+    const ETo_Turc = EMP.turc(Tmean, Rs, rec.RH);
+    return { ETo: PM.leToEto(LE, seconds), Rn: Rn_MJ, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, G: G_MJ, Tmean, P, ETo_HS, ETo_PT, ETo_Turc };
   };
   T.hourly = function (site, rec, prevRatioRef, ov) {
     const latRad = site.lat * Math.PI / 180;
@@ -482,7 +632,10 @@ const TS = (function () {
     const LE = PM.latentHeatFlux(Delta, RnW, GW, gamma, rhoCp, VPD, ra, rc);
     const EToDay = PM.leToEto(LE, seconds);
     const days = rec.daysInMonth || 30;
-    return { ETo: EToDay * days, EToDayMean: EToDay, Rn: Rn_MJ_day, G: G_MJ_day, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, Tmean, days };
+    const ETo_HS = EMP.hargreavesSamani(Tmean, rec.Tmax, rec.Tmin, solar.Ra) * days;
+    const ETo_PT = EMP.priestleyTaylor(Delta, gamma, Rn_MJ_day, G_MJ_day) * days;
+    const ETo_Turc = EMP.turc(Tmean, Rs, rec.RH) * days;
+    return { ETo: EToDay * days, EToDayMean: EToDay, Rn: Rn_MJ_day, G: G_MJ_day, Rs, Rso, Ra: solar.Ra, es, ea, VPD, Delta, gamma, ra, rc, Tmean, days, ETo_HS, ETo_PT, ETo_Turc };
   };
   return T;
 })();
@@ -518,6 +671,7 @@ const App = {
   map: null, marker: null,
   charts: {},
   sens: { record: 0, scope: 'single' },
+  showEmpirical: false,
 };
 window.App = App;
 
@@ -571,9 +725,15 @@ document.getElementById('stepToggle').addEventListener('change', (e) => {
   document.getElementById('nasaYearWrap').classList.toggle('hidden', App.timestep!=='monthly');
   document.getElementById('rcNight').disabled = (App.timestep !== 'hourly');
   document.getElementById('btnAddYear').classList.toggle('hidden', App.timestep !== 'monthly');
+  // Empirical-formula comparison is only computed for daily/monthly timesteps.
+  document.getElementById('empiricalToggleWrap').classList.toggle('hidden', App.timestep === 'hourly');
   updateNasaAvailability();
   renderDataTable();
   renderResults();
+});
+document.getElementById('chkEmpirical').addEventListener('change', (e) => {
+  App.showEmpirical = e.target.checked;
+  if (App.results.length) renderResults();
 });
 function updateNasaAvailability() {
   // NASA POWER (daily/monthly climatology) and Open-Meteo (hourly, since NASA POWER's
@@ -697,32 +857,32 @@ function initMap() {
     shadowUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAApCAQAAAACach9AAACMUlEQVR4Ae3ShY7jQBAE0Aoz/f9/HTMzhg1zrdKUrJbdx+Kd2nD8VNudfsL/Th///dyQN2TH6f3y/BGpC379rV+S+qqetBOxImNQXL8JCAr2V4iMQXHGNJxeCfZXhSRBcQMfvkOWUdtfzlLgAENmZDcmo2TVmt8OSM2eXxBp3DjHSMFutqS7SbmemzBiR+xpKCNUIRkdkkYxhAkyGoBvyQFEJEefwSmmvBfJuJ6aKqKWnAkvGZOaZXTUgFqYULWNSHUckZuR1HIIimUExutRxwzOLROIG4vKmCKQt364mIlhSyzAf1m9lHZHJZrlAOMMztRRiKimp/rpdJDc9Awry5xTZCte7FHtuS8wJgeYGrex28xNTd086Dik7vUMscQOa8y4DoGtCCSkAKlNwpgNtphjrC6MIHUkR6YWxxs6Sc5xqn222mmCRFzIt8lEdKx+ikCtg91qS2WpwVfBelJCiQJwvzixfI9cxZQWgiSJelKnwBElKYtDOb2MFbhmUigbReQBV0Cg4+qMXSxXSyGUn4UbF8l+7qdSGnTC0XLCmahIgUHLhLOhpVCtw4CzYXvLQWQbJNmxoCsOKAxSgBJno75avolkRw8iIAFcsdc02e9iyCd8tHwmeSSoKTowIgvscSGZUOA7PuCN5b2BX9mQM7S0wYhMNU74zgsPBj3HU7wguAfnxxjFQGBE6pwN+GjME9zHY7zGp8wVxMShYX9NXvEWD3HbwJf4giO4CFIQxXScH1/TM+04kkBiAAAAAElFTkSuQmCC',
   });
   App.map = L.map('map').setView([App.site.lat, App.site.lon], 6);
-  // Two base layers the user can switch between (top-right control): a street map
-  // (CartoDB Voyager -- visually a standard labelled road map, and more tolerant of
-  // being loaded from a local file:// page than raw tile.openstreetmap.org, which
-  // some mirrors rate-limit/refuse without an HTTP referer) and satellite imagery.
-  const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains: 'abcd',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  });
+  // Satellite imagery only (the Street/CartoDB Voyager layer and its layer-switcher
+  // control were removed per request -- satellite is the only base layer now).
   const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
     attribution: 'Esri, Maxar, Earthstar Geographics',
   });
-  streetLayer.addTo(App.map);
-  L.control.layers({ 'Street': streetLayer, 'Satellite': satelliteLayer }, null, { position: 'topright' }).addTo(App.map);
+  satelliteLayer.addTo(App.map);
 
   let tileErrorShown = false;
-  [streetLayer, satelliteLayer].forEach(layer => {
-    layer.on('tileerror', () => {
-      if (tileErrorShown) return; tileErrorShown = true;
-      mapStatus('Map imagery failed to load (no network access to the tile server from this browser) — you can still click the map to set coordinates.', true);
-    });
-    layer.on('tileload', () => { if (!tileErrorShown) mapStatus(''); });
+  satelliteLayer.on('tileerror', () => {
+    if (tileErrorShown) return; tileErrorShown = true;
+    mapStatus('Map imagery failed to load (no network access to the tile server from this browser) — you can still click the map to set coordinates.', true);
   });
+  satelliteLayer.on('tileload', () => { if (!tileErrorShown) mapStatus(''); });
+
   App.marker = L.marker([App.site.lat, App.site.lon], { icon: pinIcon, draggable: true }).addTo(App.map);
   App.marker.on('dragend', () => { const p = App.marker.getLatLng(); setLatLon(p.lat, p.lng); });
-  App.map.on('click', (e) => { App.marker.setLatLng(e.latlng); setLatLon(e.latlng.lat, e.latlng.lng); });
+  // Clicking the map sets the coordinates AND zooms in on the clicked point, so the
+  // user can immediately see the field/parcel they just selected rather than staying
+  // zoomed out at whatever level they started from.
+  const CLICK_ZOOM = 15;
+  App.map.on('click', (e) => {
+    App.marker.setLatLng(e.latlng);
+    setLatLon(e.latlng.lat, e.latlng.lng);
+    App.map.flyTo(e.latlng, Math.max(App.map.getZoom(), CLICK_ZOOM));
+  });
 }
 function setLatLon(lat, lon) {
   App.site.lat = Math.round(lat*10000)/10000; App.site.lon = Math.round(lon*10000)/10000;
@@ -1157,7 +1317,7 @@ function computeAll() {
 function renderResults() {
   const results = App.results;
   const statCards = document.getElementById('statCards');
-  if (!results.length) { statCards.innerHTML = '<div class="note">No results yet &mdash; click Compute ET&#8320; above.</div>'; renderResultsTable(); renderResultsChart(); return; }
+  if (!results.length) { statCards.innerHTML = '<div class="note">No results yet &mdash; click Compute ET&#8320; above.</div>'; renderResultsTable(); renderResultsChart(); renderEmpiricalCard(); return; }
   const etoVals = results.map(r => r.ETo);
   const total = etoVals.reduce((a,b)=>a+b,0);
   const mean = total/etoVals.length;
@@ -1172,6 +1332,7 @@ function renderResults() {
     <div class="statcard"><div class="val">${results.length}</div><div class="lbl">Records</div></div>`;
   renderResultsTable();
   renderResultsChart();
+  renderEmpiricalCard();
 }
 function labelFor(r) {
   if (App.timestep === 'hourly') return r.date + ' h' + r.hour;
@@ -1185,12 +1346,19 @@ function renderResultsTable() {
   // manually/via Excel) -- only show the column when at least one loaded record has it.
   const hasPrecip = App.results.some(r => r.precip !== undefined);
   const precipLabel = 'Precip (' + CONV.precip.unit[App.units] + ')';
-  thead.innerHTML = `<tr><th>Record</th><th>${etoLabel}</th><th>Rn (${App.units==='SI'?'MJ/m²':'Btu/ft²'})</th><th>r<sub>a</sub> (s/m)</th><th>r<sub>c</sub> (s/m)</th><th>VPD (kPa)</th>${hasPrecip?`<th>${precipLabel}</th>`:''}</tr>`;
+  // Empirical comparison columns are opt-in (checkbox) and only meaningful for
+  // daily/monthly results, where TS.daily/TS.monthly actually compute ETo_HS etc.
+  const hasEmpirical = App.showEmpirical && App.results.some(r => r.ETo_HS !== undefined);
+  const etoDispUnit = App.units==='SI' ? 'mm' : 'in';
+  const empHeaders = hasEmpirical ? `<th>ET&#8320; HS (${etoDispUnit})</th><th>ET&#8320; PT (${etoDispUnit})</th><th>ET&#8320; Turc (${etoDispUnit})</th>` : '';
+  thead.innerHTML = `<tr><th>Record</th><th>${etoLabel}</th><th>Rn (${App.units==='SI'?'MJ/m²':'Btu/ft²'})</th><th>r<sub>a</sub> (s/m)</th><th>r<sub>c</sub> (s/m)</th><th>VPD (kPa)</th>${hasPrecip?`<th>${precipLabel}</th>`:''}${empHeaders}</tr>`;
   tbody.innerHTML = App.results.map(r => {
     const etoDisp = App.units==='SI' ? r.ETo : r.ETo/25.4;
     const rnDisp = App.units==='SI' ? r.Rn : r.Rn*88.055;
     const precipCell = hasPrecip ? `<td>${r.precip!==undefined ? CONV.precip.toDisp(r.precip, App.units).toFixed(2) : '—'}</td>` : '';
-    return `<tr><td>${labelFor(r)}</td><td>${etoDisp.toFixed(4)}</td><td>${rnDisp.toFixed(2)}</td><td>${r.ra.toFixed(1)}</td><td>${r.rc.toFixed(1)}</td><td>${r.VPD.toFixed(3)}</td>${precipCell}</tr>`;
+    const empCell = v => v!==undefined ? (App.units==='SI'?v:v/25.4).toFixed(4) : '—';
+    const empCells = hasEmpirical ? `<td>${empCell(r.ETo_HS)}</td><td>${empCell(r.ETo_PT)}</td><td>${empCell(r.ETo_Turc)}</td>` : '';
+    return `<tr><td>${labelFor(r)}</td><td>${etoDisp.toFixed(4)}</td><td>${rnDisp.toFixed(2)}</td><td>${r.ra.toFixed(1)}</td><td>${r.rc.toFixed(1)}</td><td>${r.VPD.toFixed(3)}</td>${precipCell}${empCells}</tr>`;
   }).join('');
 }
 function renderResultsChart() {
@@ -1228,15 +1396,106 @@ function renderResultsChart() {
     } }
   });
 }
+// ===================================================== EMPIRICAL COMPARISON
+const EMPIRICAL_METHODS = [
+  { key: 'ETo_HS',   label: 'Hargreaves-Samani', color: '#c69214' },
+  { key: 'ETo_PT',   label: 'Priestley-Taylor',  color: '#2e7d46' },
+  { key: 'ETo_Turc', label: 'Turc',              color: '#b3392c' },
+];
+// Simple validation stats for an empirical method vs PM: bias (mean emp-PM),
+// RMSE, and R^2 (squared Pearson correlation) across the current result set.
+function computeFitStats(pm, emp) {
+  const n = pm.length;
+  if (!n) return { bias: NaN, rmse: NaN, r2: NaN };
+  let sumErr = 0, sumSqErr = 0;
+  for (let i = 0; i < n; i++) { const e = emp[i] - pm[i]; sumErr += e; sumSqErr += e * e; }
+  const bias = sumErr / n, rmse = Math.sqrt(sumSqErr / n);
+  const meanPM = pm.reduce((a,b)=>a+b,0) / n, meanEmp = emp.reduce((a,b)=>a+b,0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { const dx = pm[i]-meanPM, dy = emp[i]-meanEmp; sxy += dx*dy; sxx += dx*dx; syy += dy*dy; }
+  const r2 = (sxx > 0 && syy > 0) ? Math.pow(sxy / Math.sqrt(sxx*syy), 2) : NaN;
+  return { bias, rmse, r2 };
+}
+function renderEmpiricalCard() {
+  const card = document.getElementById('empiricalCard');
+  const hasEmpirical = App.showEmpirical && App.results.some(r => r.ETo_HS !== undefined);
+  card.classList.toggle('hidden', !hasEmpirical);
+  if (App.charts.empiricalChart) { App.charts.empiricalChart.destroy(); App.charts.empiricalChart = null; }
+  if (App.charts.empiricalScatterChart) { App.charts.empiricalScatterChart.destroy(); App.charts.empiricalScatterChart = null; }
+  if (!hasEmpirical) return;
+
+  const results = App.results;
+  const conv = v => App.units==='SI' ? v : v/25.4;
+  const etoUnit = App.units==='SI' ? 'mm' : 'in';
+  const pmArr = results.map(r => conv(r.ETo));
+
+  // ---- Stat cards: bias/RMSE/R^2 of each method vs PM, in current display units ----
+  document.getElementById('empiricalStatCards').innerHTML = EMPIRICAL_METHODS.map(m => {
+    const empArr = results.map(r => conv(r[m.key]));
+    const s = computeFitStats(pmArr, empArr);
+    return `
+      <div class="statcard"><div class="val" style="font-size:1.05rem;">${isNaN(s.bias)?'—':(s.bias>=0?'+':'')+s.bias.toFixed(3)}</div><div class="lbl">${m.label}<br>Bias (${etoUnit})</div></div>
+      <div class="statcard"><div class="val" style="font-size:1.05rem;">${isNaN(s.rmse)?'—':s.rmse.toFixed(3)}</div><div class="lbl">${m.label}<br>RMSE (${etoUnit})</div></div>
+      <div class="statcard"><div class="val" style="font-size:1.05rem;">${isNaN(s.r2)?'—':s.r2.toFixed(3)}</div><div class="lbl">${m.label}<br>R&sup2; vs PM</div></div>`;
+  }).join('');
+
+  // ---- Chart 1: time series overlay, PM + each empirical method ----
+  const labels = results.map(labelFor);
+  const datasets = [{
+    label: 'PM ET₀ (' + etoUnit + ')', data: pmArr, borderColor: '#002855', backgroundColor: 'rgba(0,40,85,0.06)',
+    fill: false, tension: 0.15, pointRadius: results.length>80?0:2, borderWidth: 2, order: 0,
+  }];
+  EMPIRICAL_METHODS.forEach(m => {
+    datasets.push({
+      label: m.label + ' (' + etoUnit + ')', data: results.map(r => conv(r[m.key])),
+      borderColor: m.color, backgroundColor: m.color, fill: false, tension: 0.15, borderDash: [5,3],
+      pointRadius: results.length>80?0:2, order: 1,
+    });
+  });
+  App.charts.empiricalChart = new Chart(document.getElementById('empiricalChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ title:{ display:true, text:'ET₀: Penman-Monteith vs Empirical Methods' } },
+      scales:{ x:{ ticks:{ maxTicksLimit:12 } }, y:{ beginAtZero:true, title:{ display:true, text: etoUnit } } } }
+  });
+
+  // ---- Chart 2: scatter of empirical vs PM, with a 1:1 reference line ----
+  const allVals = pmArr.concat(...EMPIRICAL_METHODS.map(m => results.map(r => conv(r[m.key]))));
+  const maxVal = Math.max(1, ...allVals.filter(v => isFinite(v)));
+  const scatterDatasets = EMPIRICAL_METHODS.map(m => ({
+    label: m.label, type: 'scatter',
+    data: results.map((r,i) => ({ x: pmArr[i], y: conv(r[m.key]) })),
+    backgroundColor: m.color, borderColor: m.color, pointRadius: 3,
+  }));
+  scatterDatasets.push({
+    label: '1:1 line', type: 'line', data: [{x:0,y:0},{x:maxVal,y:maxVal}],
+    borderColor: '#5b6572', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, fill: false, order: -1,
+  });
+  App.charts.empiricalScatterChart = new Chart(document.getElementById('empiricalScatterChart'), {
+    type: 'scatter',
+    data: { datasets: scatterDatasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ title:{ display:true, text:'Empirical ET₀ vs Penman-Monteith ET₀ (1:1 line = perfect agreement)' } },
+      scales:{
+        x:{ title:{ display:true, text:'PM ET₀ (' + etoUnit + ')' }, min:0 },
+        y:{ title:{ display:true, text:'Empirical ET₀ (' + etoUnit + ')' }, min:0 },
+      } }
+  });
+}
+
 document.getElementById('btnExportCsv').addEventListener('click', () => {
   if (!App.results.length) return;
   const hasPrecip = App.results.some(r => r.precip !== undefined);
+  const hasEmpirical = App.showEmpirical && App.results.some(r => r.ETo_HS !== undefined);
   const header = ['record','ETo','Rn_MJm2','ra_sm','rc_sm','VPD_kPa'];
   if (hasPrecip) header.push('precip_mm');
+  if (hasEmpirical) header.push('ETo_HargreavesSamani_mm','ETo_PriestleyTaylor_mm','ETo_Turc_mm');
   const rows = [header];
   App.results.forEach(r => {
     const row = [labelFor(r), r.ETo, r.Rn, r.ra, r.rc, r.VPD];
     if (hasPrecip) row.push(r.precip !== undefined ? r.precip : '');
+    if (hasEmpirical) row.push(r.ETo_HS !== undefined ? r.ETo_HS : '', r.ETo_PT !== undefined ? r.ETo_PT : '', r.ETo_Turc !== undefined ? r.ETo_Turc : '');
     rows.push(row);
   });
   const csv = rows.map(r => r.join(',')).join('\n');
@@ -1246,9 +1505,15 @@ document.getElementById('btnExportCsv').addEventListener('click', () => {
 document.getElementById('btnExportXlsx').addEventListener('click', () => {
   if (!App.results.length) return;
   const hasPrecip = App.results.some(r => r.precip !== undefined);
+  const hasEmpirical = App.showEmpirical && App.results.some(r => r.ETo_HS !== undefined);
   const rows = App.results.map(r => {
     const row = { record: labelFor(r), ETo_mm: r.ETo, Rn_MJm2: r.Rn, ra_sm: r.ra, rc_sm: r.rc, VPD_kPa: r.VPD };
     if (hasPrecip) row.precip_mm = r.precip !== undefined ? r.precip : '';
+    if (hasEmpirical) {
+      row.ETo_HargreavesSamani_mm = r.ETo_HS !== undefined ? r.ETo_HS : '';
+      row.ETo_PriestleyTaylor_mm = r.ETo_PT !== undefined ? r.ETo_PT : '';
+      row.ETo_Turc_mm = r.ETo_Turc !== undefined ? r.ETo_Turc : '';
+    }
     return row;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -1394,10 +1659,102 @@ function renderTornado(rawRec, baseResult) {
   });
 }
 
+// =================================================================== LEARN
+document.getElementById('btnLearn').addEventListener('click', () => {
+  document.getElementById('learnModal').classList.remove('hidden');
+});
+document.getElementById('btnLearnClose').addEventListener('click', () => {
+  document.getElementById('learnModal').classList.add('hidden');
+});
+document.getElementById('learnModal').addEventListener('click', (e) => {
+  if (e.target.id === 'learnModal') e.target.classList.add('hidden');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('learnModal').classList.add('hidden');
+});
+document.querySelectorAll('#learnTabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#learnTabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.lpanel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('lpanel-' + btn.dataset.ltab).classList.add('active');
+  });
+});
+
+// Quiz covering both the PM/empirical-formula theory and this tool's own UI,
+// so it doubles as a usage walkthrough for someone opening the app for the first time.
+const QUIZ = [
+  { q: 'What does ET₀ (reference evapotranspiration) represent?', options: [
+      'The actual water use of any crop, regardless of surface',
+      'Evapotranspiration from a hypothetical, well-watered reference surface under given weather conditions',
+      'The amount of irrigation water a farmer should apply',
+      'Total rainfall minus runoff for a field',
+    ], correct: 1, explain: 'ET₀ is defined for a reference surface (FAO-56 uses clipped grass) so it isolates the effect of weather from crop-specific factors; actual crop water use = ET₀ × a crop coefficient (Kc).' },
+  { q: 'In the FAO-56 reference definition, what surface does ET₀ represent?', options: [
+      'Bare soil', 'Open water', 'A well-watered, actively growing reference grass (h=0.12 m, albedo 0.23, rc ≈ 70 s/m)', 'Forest canopy',
+    ], correct: 2, explain: 'FAO-56 fixes the reference as a hypothetical clipped grass surface so ET₀ is comparable across locations and studies.' },
+  { q: 'Which resistance term in the Penman-Monteith equation is driven mainly by wind speed, representing transport through the air above the canopy?', options: [
+      'Surface (canopy) resistance, rc', 'Aerodynamic resistance, ra', 'Soil resistance', 'Stomatal conductance',
+    ], correct: 1, explain: 'ra depends on wind speed and surface roughness/height; rc represents the canopy’s own (mostly stomatal) resistance to water loss.' },
+  { q: 'Which empirical method needs ONLY maximum and minimum temperature (plus latitude/date, for extraterrestrial radiation) to estimate ET₀?', options: [
+      'Priestley-Taylor', 'Turc', 'Hargreaves-Samani', 'Penman-Monteith',
+    ], correct: 2, explain: 'Hargreaves-Samani (1985) was designed for sites with only temperature records — useful when solar radiation, humidity, or wind data are missing.' },
+  { q: 'Priestley-Taylor estimates ET₀ mainly from which quantities?', options: [
+      'Wind speed and vapor pressure deficit only', 'Net radiation and temperature (via Δ/(Δ+γ)), ignoring the aerodynamic/wind term', 'Rainfall and humidity', 'Soil texture and crop height',
+    ], correct: 1, explain: 'Priestley-Taylor multiplies the radiation-driven "equilibrium" evaporation rate by a constant (α≈1.26) and drops the aerodynamic term — it works best in humid, well-watered conditions where that term is small.' },
+  { q: 'Why might an empirical formula like Turc or Hargreaves-Samani disagree with Penman-Monteith at a windy, dry site?', options: [
+      'They use a different value of gravity', 'They under-weight or ignore the aerodynamic (wind/VPD) contribution to ET₀ that matters most in windy, dry conditions', 'PM is always wrong in dry climates', 'They only work for crops, not grass',
+    ], correct: 1, explain: 'PM explicitly includes a wind- and VPD-driven aerodynamic term; simplified radiation/temperature-only methods can miss a large share of ET₀ when that term dominates.' },
+  { q: 'In this tool, which online sources can supply historical weather data automatically?', options: [
+      'NASA POWER and Open-Meteo', 'USGS and NOAA only', 'A generic weather API', 'This tool only accepts manual entry',
+    ], correct: 0, explain: 'Tab 2 (Weather Data) can fetch records from the NASA POWER point API (daily/monthly) or the Open-Meteo archive API (hourly), besides manual entry and Excel/CSV import.' },
+  { q: 'Where would you go in this tool to see how much your computed ET₀ would change if, say, wind speed were measured 20% too high?', options: [
+      'The Location & Surface tab', 'The Sensitivity Analysis tab', 'The Export button', 'The Learn module',
+    ], correct: 1, explain: 'The Sensitivity Analysis tab has sliders for each input (temperature, RH, wind, radiation, ra, rc) and a tornado chart ranking which inputs ET₀ is most sensitive to.' },
+  { q: 'On the Results tab, what do the blue bars on the ET₀ chart represent?', options: [
+      'Hourly temperature', 'Rainfall/precipitation for each record, on the same axis as ET₀', 'Wind speed', 'Soil moisture',
+    ], correct: 1, explain: 'When precipitation data is available, it is plotted as bars sharing the same depth axis (mm or in) as the ET₀ line, so you can visually compare water supply and demand.' },
+  { q: 'When you tick "Compare with empirical formulas" on the Results tab, what does the tool add?', options: [
+      'Nothing visible until you re-import data', 'Extra table columns, an overlay chart, and a scatter plot with bias/RMSE/R² comparing Hargreaves-Samani, Priestley-Taylor and Turc against your PM ET₀', 'A second map', 'A crop coefficient table',
+    ], correct: 1, explain: 'The comparison is computed for daily/monthly timesteps and shown as extra table columns plus a dedicated "Empirical Formula Comparison" card with a time-series overlay, a 1:1 scatter plot, and fit statistics.' },
+];
+function renderQuiz() {
+  const container = document.getElementById('quizContainer');
+  container.innerHTML = QUIZ.map((item, i) => `
+    <div class="quiz-q" id="quizQ${i}">
+      <div class="quiz-question">${i+1}. ${item.q}</div>
+      ${item.options.map((opt, j) => `<label class="quiz-opt"><input type="radio" name="quizQ${i}" value="${j}"> ${opt}</label>`).join('')}
+      <div class="quiz-feedback" id="quizFeedback${i}"></div>
+    </div>`).join('');
+  document.getElementById('quizScore').textContent = '';
+}
+document.getElementById('btnQuizCheck').addEventListener('click', () => {
+  let score = 0;
+  QUIZ.forEach((item, i) => {
+    const sel = document.querySelector(`input[name="quizQ${i}"]:checked`);
+    const qDiv = document.getElementById('quizQ' + i);
+    const fb = document.getElementById('quizFeedback' + i);
+    qDiv.classList.remove('correct','incorrect');
+    if (!sel) { fb.innerHTML = '<span class="tag-warn" style="display:inline-block;">Not answered</span>'; return; }
+    const chosen = parseInt(sel.value, 10);
+    if (chosen === item.correct) {
+      score++; qDiv.classList.add('correct');
+      fb.innerHTML = `<span class="tag-ok" style="display:inline-block;">Correct — ${item.explain}</span>`;
+    } else {
+      qDiv.classList.add('incorrect');
+      fb.innerHTML = `<span class="tag-err" style="display:inline-block;">Not quite — ${item.explain}</span>`;
+    }
+  });
+  document.getElementById('quizScore').textContent = `Score: ${score} / ${QUIZ.length}`;
+});
+document.getElementById('btnQuizReset').addEventListener('click', renderQuiz);
+renderQuiz();
+
 // --------------------------------------------------------------- init
 refreshUnitLabels();
 refreshSetupFields();
 document.getElementById('btnAddYear').classList.toggle('hidden', App.timestep !== 'monthly');
+document.getElementById('empiricalToggleWrap').classList.toggle('hidden', App.timestep === 'hourly');
 updateNasaAvailability();
 updateSensControlsForPreset();
 renderDataTable();
