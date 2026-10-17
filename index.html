@@ -246,6 +246,7 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
         <button id="pagerNext">Next &rarr;</button>
       </div>
       <div class="btn-row">
+        <button class="btn secondary" id="btnExportDataXlsx">Export Excel</button>
         <button class="btn secondary" id="btnClearData">Clear data</button>
       </div>
     </div>
@@ -316,7 +317,7 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
       <div class="slider-row">
         <label>Relative humidity</label>
         <input type="range" id="sRH" min="-30" max="30" step="1" value="0">
-        <div class="valbox" id="vRH">0 pts</div>
+        <div class="valbox" id="vRH">0 %</div>
       </div>
       <div class="slider-row">
         <label>Wind speed</label>
@@ -325,7 +326,7 @@ select.mapping{font-size:.8rem;padding:4px 6px;}
       </div>
       <div class="slider-row">
         <label>Solar radiation</label>
-        <input type="range" id="sRS" min="-80" max="80" step="5" value="0">
+        <input type="range" id="sRS" min="-100" max="100" step="5" value="0">
         <div class="valbox" id="vRS">0 %</div>
       </div>
       <div class="slider-row">
@@ -561,7 +562,7 @@ const TS = (function () {
     const Tmean = rec.Tmean !== undefined ? rec.Tmean : (rec.Tmax + rec.Tmin) / 2;
     const esTmax = PM.satVaporPressure(rec.Tmax), esTmin = PM.satVaporPressure(rec.Tmin);
     const es = (esTmax + esTmin) / 2;
-    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: Tmean, es }, rec));
+    const ea = PM.actualVaporPressure(Object.assign({}, rec, { mode: rec.humidityMode || 'rhmean', T: Tmean, es }));
     const Delta = PM.slopeSatVaporPressure(Tmean);
     const solar = PM.extraterrestrialRadiationDaily(rec.J, latRad);
     const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
@@ -586,7 +587,7 @@ const TS = (function () {
     const latRad = site.lat * Math.PI / 180;
     const P = PM.atmPressure(site.elevM), gamma = PM.psychrometricConstant(P);
     const es = PM.satVaporPressure(rec.T);
-    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: rec.T, es }, rec));
+    const ea = PM.actualVaporPressure(Object.assign({}, rec, { mode: rec.humidityMode || 'rhmean', T: rec.T, es }));
     const Delta = PM.slopeSatVaporPressure(rec.T);
     const solar = PM.extraterrestrialRadiationHourly(rec.J, latRad, site.lon, site.utcOffset, rec.hour);
     const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
@@ -610,7 +611,7 @@ const TS = (function () {
     const Tmean = rec.Tmean !== undefined ? rec.Tmean : (rec.Tmax + rec.Tmin) / 2;
     const esTmax = PM.satVaporPressure(rec.Tmax), esTmin = PM.satVaporPressure(rec.Tmin);
     const es = (esTmax + esTmin) / 2;
-    const ea = PM.actualVaporPressure(Object.assign({ mode: rec.humidityMode || 'rhmean', T: Tmean, es }, rec));
+    const ea = PM.actualVaporPressure(Object.assign({}, rec, { mode: rec.humidityMode || 'rhmean', T: Tmean, es }));
     const Delta = PM.slopeSatVaporPressure(Tmean);
     const solar = PM.extraterrestrialRadiationDaily(rec.J, latRad);
     const Rso = PM.clearSkyRadiation(solar.Ra, site.elevM);
@@ -1283,6 +1284,30 @@ function renderDataTable() {
 document.getElementById('pagerPrev').addEventListener('click', () => { if (App.dataPage>0) { App.dataPage--; renderDataTable(); } });
 document.getElementById('pagerNext').addEventListener('click', () => { App.dataPage++; renderDataTable(); });
 
+// Export whatever is currently loaded in the Weather Data table -- NASA POWER or
+// Open-Meteo fetches, a manual entry, or an Excel/CSV import -- to a standalone
+// .xlsx file. Values are written in raw SI units (same convention as the Results
+// tab's exports) with unit-suffixed headers, independent of the SI/Imperial display
+// toggle, so the file is unambiguous regardless of what the UI happens to show.
+const DATA_EXPORT_HEADERS = {
+  hourly:  { date:'date', hour:'hour', T:'T_C', RH:'RH_pct', u:'u_ms', Rs:'Rs_Wm2', precip:'precip_mm' },
+  daily:   { date:'date', Tmax:'Tmax_C', Tmin:'Tmin_C', RH:'RH_pct', u2:'u2_ms', Rs:'Rs_MJm2day', precip:'precip_mm' },
+  monthly: { year:'year', month:'month', daysInMonth:'daysInMonth', Tmax:'Tmax_C', Tmin:'Tmin_C', RH:'RH_pct', u2:'u2_ms', Rs:'Rs_MJm2day', precip:'precip_mm' },
+};
+document.getElementById('btnExportDataXlsx').addEventListener('click', () => {
+  if (!App.data.length) return;
+  const headerMap = DATA_EXPORT_HEADERS[App.timestep];
+  const rows = App.data.map(rec => {
+    const row = {};
+    Object.keys(headerMap).forEach(k => { row[headerMap[k]] = rec[k] !== undefined ? rec[k] : ''; });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Weather data');
+  XLSX.writeFile(wb, `RefET-PM_weather_${App.timestep}.xlsx`);
+});
+
 // ---- Compute ----
 document.getElementById('btnCompute').addEventListener('click', computeAll);
 function computeAll() {
@@ -1534,7 +1559,7 @@ document.getElementById('sensScope').addEventListener('change', (e) => { App.sen
 const sliderIds = ['sT','sRH','sWS','sRS','sRA','sRC'];
 const sliderLabelFmt = {
   sT:  v => v.toFixed(1) + ' °C',
-  sRH: v => Math.round(v) + ' pts',
+  sRH: v => Math.round(v) + ' %',
   sWS: v => Math.round(v) + ' %',
   sRS: v => Math.round(v) + ' %',
   sRA: v => Math.round(v) + ' %',
@@ -1552,8 +1577,19 @@ document.getElementById('btnResetSliders').addEventListener('click', () => {
 });
 function refreshSensUnits() { /* sliders are delta/percent based; no unit relabel needed */ }
 
+// Fields that TS.hourly/daily/monthly COMPUTE and return, as opposed to raw weather
+// inputs. The sensitivity tab calls computeOne() on `App.results[idx]`, which is a
+// data record already merged with a PREVIOUS compute's output (computeAll() does
+// Object.assign({}, rec, out)) -- so without this strip, a record being perturbed here
+// would carry stale leftover values (e.g. Tmean, es, ea, ra, rc from the original,
+// unperturbed inputs) that TS.* would silently prefer over the fresh ones it's about
+// to compute from the perturbed inputs below. That was confirmed to understate/overstate
+// the Temperature slider's effect on ETo (stale Tmean froze Delta's response, and a
+// stale `es` was silently preferred over the freshly perturbed one when computing ea).
+const DERIVED_FIELDS = ['ETo','EToDayMean','Rn','Rso','Ra','es','ea','VPD','Delta','gamma','ra','rc','G','Tmean','P','Rs_Wm2','ETo_HS','ETo_PT','ETo_Turc','days'];
 function perturbRecord(rec, deltas) {
   const r = Object.assign({}, rec);
+  DERIVED_FIELDS.forEach(k => delete r[k]);
   if (App.timestep === 'hourly') {
     r.T = rec.T + deltas.T;
     r.RH = PM.clamp(rec.RH + deltas.RH, 0, 100);
@@ -1634,7 +1670,7 @@ function runSensitivity() {
 function renderTornado(rawRec, baseResult) {
   const vars = [
     { key:'T',  label:'Temperature ±2°C', d: { T: 2 } },
-    { key:'RH', label:'RH ±10 pts', d: { RH: 10 } },
+    { key:'RH', label:'RH ±10%', d: { RH: 10 } },
     { key:'WS', label:'Wind ±10%', d: { WS: 10 } },
     { key:'RS', label:'Radiation ±10%', d: { RS: 10 } },
     { key:'RA', label:'Aerodynamic resistance ±10%', d: { RA: 10 } },
